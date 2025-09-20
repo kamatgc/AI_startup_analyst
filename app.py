@@ -1,60 +1,92 @@
 import os
-import google.generativeai as genai
 from flask import Flask, request, jsonify
+from flask_cors import CORS
+from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
+import google.generativeai as genai
+import fitz  # PyMuPDF
+import json
+import logging
 
-# Load environment variables from a .env file if it exists
-# This is a good practice for local development but may not be necessary on Render
-# if you use their environment variables feature.
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    print("dotenv not installed. Skipping.")
+# Set logging level
+logging.basicConfig(level=logging.DEBUG)
 
-# Configure the Gemini API client
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+# Load environment variables
+load_dotenv()
 
-if not GOOGLE_API_KEY:
-    raise ValueError("The GOOGLE_API_KEY environment variable is not set.")
-
-genai.configure(api_key=GOOGLE_API_KEY)
-
-# Use the updated way to import HarmCategory and HarmBlockThreshold
-# These are now available directly as enums in the google.generativeai module.
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
-
-# The model we're using
-model = genai.GenerativeModel(
-    'gemini-1.5-pro-latest',
-    safety_settings={
-        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-    }
-)
+# Configure Google API
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel('gemini-1.5-pro-latest')
 
 app = Flask(__name__)
 
-@app.route("/")
-def home():
-    """A simple home page for the API."""
-    return "Gemini Flask API is running!"
+# Configure CORS to allow requests from your frontend's domain
+# Replace 'https://ai-pitchdeck-frontend.onrender.com' with the actual URL
+# of your deployed frontend. You can also use a wildcard '*' for
+# development, but it's less secure.
+CORS(app, origins=["https://ai-pitchdeck-frontend.onrender.com"])
 
-@app.route("/chat", methods=["POST"])
-def chat():
-    """Endpoint for a chat interaction with the Gemini model."""
-    data = request.json
-    prompt = data.get("prompt")
-    if not prompt:
-        return jsonify({"error": "No prompt provided"}), 400
+@app.route('/ask', methods=['POST'])
+def handle_ask():
+    logging.debug("Received a request to /ask")
+    if 'file' not in request.files:
+        logging.error("No file part in the request")
+        return jsonify({'detail': 'No file part'}), 400
 
-    try:
-        response = model.generate_content(prompt)
-        return jsonify({"response": response.text})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    file = request.files['file']
+    if file.filename == '':
+        logging.error("No selected file")
+        return jsonify({'detail': 'No selected file'}), 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        filepath = os.path.join("/tmp", filename)
+        file.save(filepath)
+        logging.debug(f"File saved to {filepath}")
+
+        try:
+            doc = fitz.open(filepath)
+            text_content = ""
+            for page in doc:
+                text_content += page.get_text()
+            logging.debug(f"Extracted text content of size {len(text_content)} characters.")
+
+            prompt_parts = [
+                "You are an AI Startup Analyst. I will provide you with a pitch deck in text format. Your task is to analyze it and generate a detailed investment memo. The memo should cover the following sections:",
+                "1. **Executive Summary:** A brief, high-level overview of the startup, its business model, and the investment opportunity.",
+                "2. **Team:** An analysis of the founding team's experience and expertise.",
+                "3. **Problem & Solution:** A clear description of the problem the startup is solving and its proposed solution.",
+                "4. **Market Analysis:** An assessment of the target market size, growth potential, and competitive landscape.",
+                "5. **Product/Service:** A review of the product or service, its key features, and unique selling propositions.",
+                "6. **Business Model & Traction:** Details on how the startup generates revenue and any key metrics or milestones achieved (e.g., users, revenue, growth rates).",
+                "7. **Financials (if available):** An overview of the financial health, including revenue, expenses, and fundraising history.",
+                "8. **Investment Ask & Use of Funds:** The amount of capital being raised and how it will be used.",
+                "9. **Risks:** An identification of potential risks and challenges.",
+                "10. **Conclusion & Recommendation:** A final recommendation on whether to invest, supported by a summary of the key findings.",
+                "---",
+                "Pitch Deck Text:",
+                text_content,
+                "---",
+                "Please format your response using Markdown for easy readability. Do not include any filler text before or after the investment memo itself. Start directly with the memo."
+            ]
+            
+            response = model.generate_content(prompt_parts)
+            
+            # The API returns markdown content within a 'text' field.
+            memo_markdown = response.text
+            
+            logging.debug("Successfully generated investment memo.")
+            
+            return jsonify({'markdown': memo_markdown}), 200
+
+        except Exception as e:
+            logging.error(f"An error occurred: {e}", exc_info=True)
+            return jsonify({'detail': f'An internal error occurred during analysis: {e}'}), 500
+        finally:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                logging.debug(f"Temporary file {filepath} removed.")
 
 if __name__ == '__main__':
-    # When deploying, gunicorn will manage this. This is for local testing.
-    app.run(host='0.0.0.0', port=os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
