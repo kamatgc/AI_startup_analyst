@@ -5,6 +5,7 @@ charset-normalizer==3.4.3
 click==8.1.8
 flask==3.0.3
 Flask-Cors==5.0.0
+gunicorn==22.0.0
 google-ai-generativelanguage
 google-api-core
 google-auth==2.40.3
