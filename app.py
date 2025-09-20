@@ -1,112 +1,160 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
-from werkzeug.utils import secure_filename
-from pdf2image import convert_from_path
-import google.generativeai as genai
 import os
 import io
+import pathlib
+import json
 
+import google.generativeai as genai
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from dotenv import load_dotenv
+
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.lib.pagesizes import letter
+
+load_dotenv()
 app = Flask(__name__)
-# Enable CORS for all routes and all origins
 CORS(app)
 
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-# Function to extract text and images from a PDF
-def extract_content_from_pdf(pdf_path):
-    """
-    Extracts content from a PDF file.
+model = genai.GenerativeModel('gemini-1.5-flash')
 
-    Returns a list of image objects and a combined string of text from all pages.
-    """
-    images = convert_from_path(pdf_path)
-    # Placeholder for text extraction - will be implemented if required
-    text = "Text content is not currently extracted."
-    return images, text
+# Define safety settings to be passed directly to the model
+safety_settings = [
+    {
+        "category": "HARM_CATEGORY_HARASSMENT",
+        "threshold": "BLOCK_NONE"
+    },
+    {
+        "category": "HARM_CATEGORY_HATE_SPEECH",
+        "threshold": "BLOCK_NONE"
+    },
+    {
+        "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        "threshold": "BLOCK_NONE"
+    },
+    {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "threshold": "BLOCK_NONE"
+    },
+]
 
-# Function to generate an investment memo
-def generate_investment_memo(images, text_content):
-    """
-    Generates a detailed investment memo using Google's Gemini API.
-    """
-    try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        system_prompt = (
-            "You are a highly experienced and detailed venture capital analyst. Your task is to analyze a startup pitch deck "
-            "and create a professional, comprehensive, and detailed investment memo. The pitch deck is provided as a series of images "
-            "and some text content. Your memo should be structured with the following key sections:\n\n"
-            "1. Executive Summary: A concise overview of the company, its mission, and the investment opportunity.\n"
-            "2. Company & Product: Detailed analysis of the startup's core business, product, and technology.\n"
-            "3. Market Opportunity: Assessment of the market size, target audience, and industry trends.\n"
-            "4. Business Model: Explanation of how the company generates revenue, its pricing strategy, and unit economics.\n"
-            "5. Team: Evaluation of the founding team's experience, expertise, and ability to execute.\n"
-            "6. Competitive Landscape: Analysis of key competitors, the company's competitive advantages, and its defensibility.\n"
-            "7. Financials: Summary of key financial metrics, funding history, and projections.\n"
-            "8. Investment Recommendation: Your final recommendation on whether to invest, supported by key rationale and potential risks.\n\n"
-            "Ensure the memo is professional, well-structured, and provides deep insights for a potential investor."
-        )
-        
-        # Prepare the parts for the model
-        parts = [
-            {"text": system_prompt},
-            *images,
-            {"text": f"Here is the pitch deck's text content: {text_content}"}
-        ]
-
-        # Generate content with safety settings
-        response = model.generate_content(
-            contents=parts,
-            safety_settings={
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-            }
-        )
-        return response.text
-    except Exception as e:
-        print(f"Error in generating content: {e}")
-        return f"An error occurred during memo generation: {str(e)}"
-
-@app.route("/")
+@app.route('/', methods=['GET'])
 def home():
-    """Welcome route for the web browser."""
-    return "<h1>AI Pitch Deck Analyzer API is Live!</h1><p>Send a POST request to /ask with a PDF file.</p>"
+    return jsonify({"status": "Server is up and running!"})
 
-@app.route("/ask", methods=["POST"])
+
+@app.route('/ask', methods=['POST'])
 def ask():
-    """Handles the PDF upload and analysis."""
-    print("Received POST request to /ask. Starting analysis...")
-    if 'pdf_file' not in request.json:
-        return jsonify({"error": "No PDF file found in request"}), 400
-
-    base64_pdf = request.json['pdf_file']
+    data = request.json
+    question = data.get('question')
+    print(f"Received question: {question}")
     
-    # Decode the base64 PDF
-    pdf_data = io.BytesIO(base64_pdf.encode('utf-8'))
+    if not question:
+        return jsonify({"error": "Question not provided"}), 400
 
-    # Save the PDF temporarily to be processed by pdf2image
     try:
-        temp_pdf_path = "temp_pitchdeck.pdf"
-        with open(temp_pdf_path, "wb") as f:
-            f.write(pdf_data.getbuffer())
+        response = model.generate_content(
+            question,
+            safety_settings=safety_settings
+        )
+        print(f"Model response: {response.text}")
+        return jsonify({"answer": response.text})
+    except Exception as e:
+        print(f"Error during content generation: {e}")
+        return jsonify({"error": str(e)}), 500
 
-        # Extract images and text
-        images, text_content = extract_content_from_pdf(temp_pdf_path)
+@app.route('/upload', methods=['POST'])
+def upload():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        
+        if file and file.filename.endswith('.pdf'):
+            # It's a PDF, so we use Google's PDF processing
+            pdf_bytes = file.read()
+            pdf_file = genai.upload_file(pdf_bytes, mime_type='application/pdf')
+            
+            prompt = """
+            Analyze this pitch deck. Provide a concise, single-paragraph summary of the key findings.
+            Focus on the following key areas and provide your analysis as a JSON object:
+            1.  **Executive Summary:** A brief, high-level overview.
+            2.  **Problem:** Identify the core problem the company is trying to solve.
+            3.  **Solution:** Explain the proposed solution.
+            4.  **Target Market:** Describe the intended customer base.
+            5.  **Business Model:** Explain how the company plans to make money.
+            6.  **Traction & Milestones:** Highlight any significant achievements or progress.
+            7.  **Team:** Comment on the team's expertise and background.
+            8.  **Competition:** Identify key competitors and the company's competitive advantage.
+            9.  **Financials:** Summarize any financial projections or funding requests.
+            10. **Overall Rating:** Provide a rating from 1 to 10 (10 being best) and a justification for the rating.
 
-        # Generate investment memo
-        investment_memo = generate_investment_memo(images, text_content)
-
-        # Clean up the temporary file
-        os.remove(temp_pdf_path)
-
-        return jsonify({"investment_memo": investment_memo})
+            The final output MUST be a valid JSON object. Do not include any text outside of the JSON.
+            """
+            
+            response = model.generate_content(
+                [prompt, pdf_file],
+                safety_settings=safety_settings
+            )
+            
+            try:
+                # Assuming the response text is a valid JSON string
+                analysis_data = json.loads(response.text)
+            except json.JSONDecodeError:
+                return jsonify({'error': 'Model did not return valid JSON. Please try again.'}), 500
+            
+            return jsonify(analysis_data)
 
     except Exception as e:
-        print(f"Error processing PDF: {e}")
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+        print(f"Error: {e}")
+        return jsonify({'error': str(e)}), 500
 
-if __name__ == "__main__":
-    app.run(debug=True)
+@app.route('/generate_pdf', methods=['POST'])
+def generate_pdf():
+    data = request.json
+    analysis_data = data.get('analysis')
+
+    if not analysis_data:
+        return jsonify({'error': 'No analysis data provided'}), 400
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter)
+    styles = getSampleStyleSheet()
+    story = []
+
+    story.append(Paragraph("Pitchdeck Analysis Report", styles['Title']))
+    story.append(Spacer(1, 0.2 * inch))
+
+    for section, content in analysis_data.items():
+        if section.lower() == 'overall rating':
+            # Handle rating with special formatting
+            title_text = f"<b>{section.replace('_', ' ').title()}</b>"
+            story.append(Paragraph(title_text, styles['h2']))
+            rating_text = f"Rating: {content['rating']}/10"
+            justification_text = f"Justification: {content['justification']}"
+            story.append(Paragraph(rating_text, styles['Normal']))
+            story.append(Paragraph(justification_text, styles['Normal']))
+        else:
+            title_text = f"<b>{section.replace('_', ' ').title()}</b>"
+            story.append(Paragraph(title_text, styles['h2']))
+            story.append(Paragraph(content, styles['Normal']))
+            
+        story.append(Spacer(1, 0.2 * inch))
+    
+    doc.build(story)
+    buffer.seek(0)
+    
+    return buffer.getvalue(), 200, {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename=analysis_report.pdf'
+    }
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=os.environ.get('PORT', 5000), debug=True)
