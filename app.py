@@ -28,19 +28,35 @@ if not os.path.exists(UPLOAD_FOLDER):
 def pdf_to_base64_images(pdf_file_path):
     """
     Converts each page of a PDF file to a Base64-encoded JPEG image.
+    This is a generator function to stream progress.
     """
-    images = []
     try:
         doc = fitz.open(pdf_file_path)
-        for page_num in range(doc.page_count):
+        num_pages = doc.page_count
+        images = []
+        
+        print("Server: Starting PDF conversion...")
+        yield json.dumps({"status": f"Converting PDF to images (0/{num_pages} pages completed)..."}) + '\n'
+        
+        for page_num in range(num_pages):
             page = doc.load_page(page_num)
             pix = page.get_pixmap(dpi=200)
             image_buffer = pix.tobytes(output='jpeg')
             images.append(base64.b64encode(image_buffer).decode('utf-8'))
+            
+            print(f"Server: Converted page {page_num + 1} of {num_pages}.")
+            yield json.dumps({"status": f"Converting PDF to images ({page_num + 1}/{num_pages} pages completed)..."}) + '\n'
+            
         doc.close()
+        print("Server: PDF conversion complete.")
+        yield json.dumps({"status": "PDF conversion complete."}) + '\n'
+        
     except Exception as e:
         print(f"Error converting PDF to images: {e}")
-        return []
+        traceback.print_exc()
+        yield json.dumps({"error": "Failed to process PDF file during conversion."}) + '\n'
+        images = []
+    
     return images
 
 def call_gemini_api(prompt_text, images=None):
@@ -208,12 +224,15 @@ def ask_ai():
         @stream_with_context
         def generate():
             try:
-                # NEW: Send a status update immediately after receiving the file
-                yield json.dumps({"status": "File received. Processing pages..."}) + '\n'
-                print("Server: File received. Processing pages...")
+                # NEW: Call the new generator function for conversion to stream updates
+                print("Server: File received. Initiating PDF processing...")
+                for status_update in pdf_to_base64_images(temp_path):
+                    yield status_update
                 
-                all_images = pdf_to_base64_images(temp_path)
-                
+                # Retrieve the images after the generator is done
+                all_images_generator = pdf_to_base64_images(temp_path)
+                all_images = list(next(all_images_generator) for _ in range(0, len(os.listdir(UPLOAD_FOLDER))))
+
                 if not all_images:
                     yield json.dumps({"error": "Failed to process PDF file."}) + '\n'
                     return
