@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Startup Analyst</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+    <div class="w-full max-w-2xl bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
+        <div id="alert-box" class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-50 p-4 rounded-lg shadow-lg transition-transform transform-gpu" role="alert" style="transform: translateX(-50%)">
+            <div id="alert-content" class="text-sm font-medium"></div>
+        </div>
+        
+        <h1 class="text-3xl font-bold text-center mb-2">AI Startup Analyst</h1>
+        <p class="text-center text-gray-400 mb-6">Analyze your pitch deck with AI to generate a detailed investment memo.</p>
+
+        <div class="mb-4">
+            <label for="pdf-input" class="block text-sm font-medium text-gray-400 mb-2">Upload Pitch Deck (PDF)</label>
+            <input type="file" id="pdf-input" accept=".pdf" class="w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-full file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-500 file:text-white
+                hover:file:bg-blue-600
+                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+        </div>
+        
+        <button id="analyze-button" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition-colors duration-200">
+            Analyze Pitch Deck
+        </button>
+
+        <div id="loading-spinner" class="hidden mt-6 text-center">
+            <svg class="animate-spin h-8 w-8 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-2 text-gray-400">Analyzing... this may take a moment.</p>
+        </div>
+
+        <div id="output" class="hidden mt-6 p-4 rounded-lg bg-gray-700 border border-gray-600">
+            <h2 class="text-2xl font-bold mb-2">Investment Memo</h2>
+            <div id="memo-content" class="prose prose-invert max-w-none text-gray-300"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('pdf-input');
+            const analyzeButton = document.getElementById('analyze-button');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const outputDiv = document.getElementById('output');
+            const memoContentDiv = document.getElementById('memo-content');
+            const alertBox = document.getElementById('alert-box');
+            const alertContent = document.getElementById('alert-content');
+
+            // IMPORTANT: Replace this placeholder with your actual, live Render URL.
+            // Example: "https://your-service-name.onrender.com/ask"
+            const API_URL = "https://ai-pitchdeck-analyzer.onrender.com/ask";
+
+            function showAlert(message, type = 'info') {
+                alertContent.textContent = message;
+                alertBox.classList.remove('hidden', 'bg-red-500', 'bg-yellow-500', 'bg-green-500');
+                if (type === 'error') {
+                    alertBox.classList.add('bg-red-500');
+                } else if (type === 'success') {
+                    alertBox.classList.add('bg-green-500');
+                } else {
+                    alertBox.classList.add('bg-yellow-500');
+                }
+                alertBox.style.display = 'block';
+                setTimeout(() => {
+                    alertBox.style.display = 'none';
+                }, 5000);
+            }
+
+            analyzeButton.addEventListener('click', async () => {
+                const file = fileInput.files[0];
+                if (!file) {
+                    showAlert("Please select a PDF file.", "error");
+                    return;
+                }
+
+                if (file.type !== 'application/pdf') {
+                    showAlert("Only PDF files are supported.", "error");
+                    return;
+                }
+
+                if (API_URL.includes("YOUR_LIVE_RENDER_URL_HERE")) {
+                    showAlert("Please update the API_URL in the JavaScript code with your actual Render URL.", "error");
+                    return;
+                }
+
+                loadingSpinner.classList.remove('hidden');
+                outputDiv.classList.add('hidden');
+                
+                try {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = async () => {
+                        const base64Pdf = reader.result.split(',')[1];
+                        
+                        const response = await fetch(API_URL, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ pdf_file: base64Pdf })
+                        });
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            showAlert(`API Error: ${errorData.error || response.statusText}`, "error");
+                            return;
+                        }
+
+                        const data = await response.json();
+                        memoContentDiv.innerHTML = data.investment_memo.replace(/\n/g, '<br>');
+                        outputDiv.classList.remove('hidden');
+                        showAlert("Analysis complete!", "success");
+                    };
+                    reader.onerror = (error) => {
+                        showAlert(`File read error: ${error}`, "error");
+                    };
+                } catch (error) {
+                    showAlert(`Failed to connect to the API. Please check the URL and try again. Error: ${error}`, "error");
+                } finally {
+                    loadingSpinner.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

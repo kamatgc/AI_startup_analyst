@@ -284,7 +284,3 @@ def ask_ai():
                 os.remove(temp_path)
     
     return Response(stream_with_context(generate()), mimetype='application/json')
-
-if __name__ == '__main__':
-    print("SERVER: Starting Flask application...")
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=True)
