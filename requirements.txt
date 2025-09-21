@@ -1,6 +1,5 @@
-Flask
 google-generativeai
-python-dotenv
-PyMuPDF
+Flask
+flask-cors
+PyPDF2
 gunicorn
-Flask-Cors
