@@ -235,23 +235,17 @@ def analyze_pitch_deck():
     def generate():
         temp_path = None
         try:
-            # Save the file to a temporary location
+            # --- The new and correct fix ---
             temp_path = os.path.join(UPLOAD_FOLDER, file.filename)
-            
-            # --- The fix for the ValueError ---
-            # Read the file content into memory before saving to avoid the "closed file" error
-            file_content = file.read()
-            with open(temp_path, 'wb') as temp_file:
-                temp_file.write(file_content)
+            file.save(temp_path)
+            print(f"SERVER: Successfully saved uploaded file to {temp_path}")
             # --- End of fix ---
-
-            print(f"SERVER: Saved uploaded file to {temp_path}")
 
             yield json.dumps({"status": "Extracting images from PDF..."}) + '\n'
             all_images = pdf_to_base64_images(temp_path)
             
             if not all_images:
-                yield json.dumps({"error": "Failed to process PDF file."}) + '\n'
+                yield json.dumps({"error": "Failed to process PDF file. The file might be corrupted or empty."}) + '\n'
                 return
 
             chunk_summaries = []
