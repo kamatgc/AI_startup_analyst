@@ -38,34 +38,102 @@ def extract_text_from_pdf(pdf_file):
 
 def analyze_pitch_deck(text_content):
     """
-    Analyzes the pitch deck text content using the Gemini API.
+    Analyzes the pitch deck text content using the Gemini API and the full, detailed prompt.
     """
-    # Define the prompt for the Gemini API.
-    prompt_text = (
-        "You are an expert AI startup analyst. Your task is to analyze a pitch deck "
-        "and generate a concise, detailed investment memo. The memo should be "
-        "structured clearly with the following sections:\n\n"
-        "1. Executive Summary: A brief, high-level overview of the company, "
-        "its purpose, and the investment opportunity.\n"
-        "2. Team: A summary of the founding team's experience and qualifications.\n"
-        "3. Problem: The problem the company is solving.\n"
-        "4. Solution: The product or service offered by the company.\n"
-        "5. Market Opportunity: The total addressable market (TAM) and the "
-        "potential for growth.\n"
-        "6. Business Model: How the company makes money.\n"
-        "7. Traction: Any key milestones, user growth, revenue, or partnerships.\n"
-        "8. Competition: A brief analysis of competitors and the company's "
-        "competitive advantage.\n\n"
-        "Here is the text extracted from the pitch deck:\n\n"
-        f"{text_content}"
-    )
+    # The exact prompt you provided, with the text placeholder.
+    synthesis_prompt = f"""
+    You are an expert financial analyst. You have been provided with several summaries of a startup pitch deck.
+    
+    Your task is to synthesize all of the provided summaries into a single, professional investment memo.
+    
+    Use the following structure and fill in the details from the summaries. If a specific data point is not available, state "Information not available in the provided materials."
+    
+    **Investment Memo Structure (MANDATORY):**
+
+    The memo MUST follow this exact structure, using Markdown headings for each section.
+
+    **1. Executive Summary:**
+    - Provide a single, concise paragraph that summarizes the company's core business, key highlights, and investment potential.
+
+    **2. Company Overview:**
+    - **Startup Name:**
+    - **Industry & Sector:**
+    - **Domain:**
+    - **Problem:** What is the core problem the company is trying to solve?
+    - **Solution:** How does the company's product or service solve this problem?
+
+    **3. The Founding Team:**
+    - **Background and Expertise:** Synthesize the founders' professional history, relevant domain expertise, and educational backgrounds.
+    - **Team Cohesion:** Look for any evidence of how long the team has worked together, or previous collaborations.
+    - **Previous Exits/Successes:** Note any successful exits, acquisitions, or notable achievements of the founders.
+    - **Intellectual Property:** List any patents or unique IP mentioned.
+
+    **4. Market Opportunity:**
+    - **Total Addressable Market (TAM):** Extract the TAM value and its source (if provided).
+    - **Serviceable Addressable Market (SAM):** Extract the SAM value if specified.
+    - **Competitive Landscape:** Identify key competitors and detail the company's unique selling proposition (USP).
+    - **Market Growth Rate (CAGR):** Find the CAGR for the market.
+
+    **5. Product & Technology:**
+    - **Product Stage:** Determine if the product is a prototype, MVP, or a fully launched product.
+    - **Technical Barrier to Entry:** Assess if the technology is difficult to replicate.
+
+    **6. Traction & Commercials:**
+    - **Customer Metrics:** List all key customers, pilot programs, and strategic partnerships mentioned.
+    - **Customer Acquisition Cost (CAC):** Extract CAC if mentioned.
+    - **Customer Lifetime Value (LTV):** Extract LTV if mentioned.
+    - **Revenue Model:** Clearly explain how the company generates revenue. Be specific if possible.
+    - **Revenue Run Rate:** State the current or projected revenue run rate.
+    - **Industry Recognition:** List any awards, incubations, or mentions from key industry players.
+
+    **7. Financials & Projections:**
+    - **Historical Revenue:** Extract historical revenue data if available.
+    - **Revenue Projections:** State the financial forecasts for the next 3-5 years.
+    - **Burn Rate:** Find the burn rate if mentioned.
+    - **Runway:** Note the current runway if mentioned.
+    - **Use of Funds:** Detail how the company plans to use the investment.
+
+    **8. Investment Terms & Exit Strategy:**
+    - **Round Details:** Note the funding round size and type.
+    - **Pre-money Valuation:** State the pre-money valuation.
+    - **Exit Scenarios:** Describe any proposed exit strategies.
+    - **Expected Returns:** Note any projected return multiples.
+
+    **9. Final Recommendation:**
+    - **Verdict:** Based on the final score, provide a concise final recommendation to an investor. Use the following decision guide:
+      - **>= 70 → Strong Candidate (Go)**
+      - **51–69 → Conditional (monitor, more diligence)**
+      - **< 50 → High Risk (No-Go)**
+    - **Confidence Score:** State the final calculated score from 0 to 100%.
+    - **VC Scorecard Calculation:**
+      - Provide a table in Markdown with the following columns, ensuring the table has borders and proper alignment: **Category** (left aligned), **Score (1-10)** (center aligned), **Weightage (%)** (center aligned), **Weighted Score** (center aligned), and **Notes** (left aligned).
+      - Score each category 1–10 (1 = poor, 10 = excellent) based on the information in the pitch deck.
+      - Use the following fixed categories and weightages for the calculation:
+        - **Team** (30%)
+        - **Product** (15%)
+        - **Market** (20%)
+        - **Traction** (20%)
+        - **Financials** (10%)
+        - **M&A/Exit** (5%)
+      - Show the weighted score for each category and sum them up to get the final score.
+      - In the **Notes** column, provide a very brief one-line justification for the assigned score.
+    
+    
+    - **Top 3 North Star Metrics:**
+      - Based on the company's industry, identify the top 3 North Star Metrics (NSMs) that matter most.
+      - Evaluate the company's performance against these NSMs, citing any relevant data or metrics found in the deck and providing their actual values.
+    - **Rationale:** Briefly explain the primary reasons for your recommendation, highlighting key strengths and major concerns based on the NSM analysis and score breakdown.
+    
+    The summaries to be synthesized are below:
+    
+    {text_content}
+    """
 
     prompt_parts = [
-        {"text": prompt_text}
+        {"text": synthesis_prompt}
     ]
 
     # Implement a retry mechanism with exponential backoff for a more robust application.
-    # This will help prevent ResourceExhausted errors (429) that occur in the free tier.
     max_retries = 5
     base_delay = 1 # seconds
     for attempt in range(max_retries):
