@@ -14,8 +14,7 @@ app = Flask(__name__, static_folder='.')
 CORS(app)
 
 # --- Configuration and Constants ---
-# NOTE: Using a placeholder for the API key. In a real-world app, you should
-# use environment variables for sensitive information.
+# NOTE: The API_KEY below is for demonstration purposes only. You should manage it securely.
 API_KEY = "AIzaSyCP1gTahHD0dTMhdQQEO2KlLr7HSti1R5I"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={API_KEY}"
 CHUNK_SIZE = 5
@@ -34,95 +33,81 @@ def pdf_to_base64_images(pdf_file_path):
     """
     try:
         doc = fitz.open(pdf_file_path)
-        print(f"SERVER: PDF has {doc.page_count} pages.")
-        
-        all_images = []
+        images = []
         for page_num in range(doc.page_count):
             page = doc.load_page(page_num)
             pix = page.get_pixmap(dpi=200)
-            image_buffer = pix.tobytes(output="jpeg", jpg_quality=95)
-            all_images.append(base64.b64encode(image_buffer).decode('utf-8'))
-        
-        doc.close()
-        return all_images
+            image_buffer = pix.tobytes("jpeg")
+            encoded_image = base64.b64encode(image_buffer).decode('utf-8')
+            images.append({"mimeType": "image/jpeg", "data": encoded_image})
+        return images
     except Exception as e:
         print(f"Error converting PDF to images: {e}")
         return None
 
-def generate_memo_chunk(image_chunk, chunk_num):
+def generate_memo_chunk(images, chunk_num):
     """
-    Sends a chunk of images to the Gemini API and returns the generated text.
-    Includes retry logic with exponential backoff.
+    Generates a markdown summary for a chunk of images using the Gemini API.
     """
-    prompt = f"Analyze these images from a startup pitch deck (Chunk {chunk_num}). Identify key points about the company, its product, market, team, and financial projections. Structure your response as a cohesive section of an investment memo. Include an executive summary for this chunk."
-
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": prompt}
-                ] + [
-                    {"inlineData": {"mimeType": "image/jpeg", "data": img}} for img in image_chunk
-                ]
-            }
+    try:
+        # Construct the prompt with system instructions
+        system_prompt = (
+            "You are an expert financial analyst. Your task is to analyze a pitch deck. "
+            "For this section of the deck, provide a detailed markdown summary "
+            "focusing on key information like company name, product description, market size, "
+            "business model, traction, team, and financial projections if present. "
+            "Be concise but informative. Do not add titles or headings. Do not repeat "
+            "information from previous chunks."
+        )
+        
+        # Prepare the parts for the request
+        parts = [
+            {"text": system_prompt},
+            {"text": f"Analyze the following images from chunk {chunk_num} of a pitch deck. "
+                     "Extract all relevant information to build a comprehensive investment memo. "
+                     "Your response should be a concise markdown summary of this chunk."}
         ]
-    }
-    
-    headers = {
-        "Content-Type": "application/json"
-    }
-    
-    retries = 3
-    delay = 1
-    
-    for attempt in range(retries):
-        try:
-            print(f"SERVER: Generating memo for chunk {chunk_num}...")
-            print(f"SERVER: Attempting API call (Retry {attempt + 1}/{retries})...")
-            response = requests.post(GEMINI_API_URL, headers=headers, data=json.dumps(payload), timeout=120)
-            response.raise_for_status()
-            
-            result = response.json()
-            candidate = result.get('candidates')[0] if result.get('candidates') else None
-            if not candidate or not candidate.get('content') or not candidate['content'].get('parts'):
-                raise ValueError("Invalid API response format")
-                
-            text = candidate['content']['parts'][0]['text']
-            return text
-            
-        except requests.exceptions.HTTPError as http_err:
-            print(f"HTTP error for chunk {chunk_num}: {http_err}")
-            if response.status_code in [429, 500, 503] and attempt < retries - 1:
-                time.sleep(delay)
-                delay *= 2
-            else:
-                raise
-        except requests.exceptions.RequestException as req_err:
-            print(f"Request error for chunk {chunk_num}: {req_err}")
-            if attempt < retries - 1:
-                time.sleep(delay)
-                delay *= 2
-            else:
-                raise
-        except (ValueError, IndexError) as parse_err:
-            print(f"JSON parsing error for chunk {chunk_num}: {parse_err}")
-            raise
-    
-    raise Exception("Failed to get a response from the API after multiple retries.")
+        
+        # Add images to the parts
+        parts.extend([{"inlineData": img} for img in images])
+
+        payload = {
+            "contents": [{"parts": parts}],
+            "generationConfig": {
+                "temperature": 0.2,
+                "topP": 0.8,
+                "topK": 40
+            },
+            "systemInstruction": {
+                "parts": [{"text": "You are a professional investment analyst. Do not generate titles or headings."}]
+            }
+        }
+        
+        response = requests.post(GEMINI_API_URL, headers={"Content-Type": "application/json"}, data=json.dumps(payload))
+        response.raise_for_status()
+        
+        result = response.json()
+        return result['candidates'][0]['content']['parts'][0]['text']
+
+    except Exception as e:
+        print(f"Error generating memo chunk: {e}")
+        return f"Error: Failed to analyze this chunk. Details: {str(e)}"
 
 def synthesize_final_memo(chunk_summaries):
     """
-    Synthesizes the final investment memo from the chunk summaries based on a structured prompt.
+    Synthesizes the individual chunk summaries into a single, cohesive investment memo.
     """
-    full_text = "\n\n---\n\n".join(chunk_summaries)
-    
-    synthesis_prompt = f"""
-You are an expert financial analyst. You have been provided with several summaries of a startup pitch deck.
-    
-Your task is to synthesize all of the provided summaries into a single, professional investment memo.
-    
-Use the following structure and fill in the details from the summaries. If a specific data point is not available, state "Information not available in the provided materials."
-    
+    try:
+        # Construct the combined prompt for final synthesis
+        combined_text = "\n\n".join(chunk_summaries)
+        
+        system_prompt = (
+            "You are an expert financial analyst. You have been provided with several summaries of a startup pitch deck. "
+            "Your task is to synthesize all of the provided summaries into a single, professional investment memo. "
+            "Use the following structure and fill in the details from the summaries. If a specific data point is not available, state 'Information not available in the provided materials.'"
+        )
+        
+        user_prompt = f"""
 **Investment Memo Structure (MANDATORY):**
 
 The memo MUST follow this exact structure, using Markdown headings for each section.
@@ -176,116 +161,89 @@ The memo MUST follow this exact structure, using Markdown headings for each sect
 
 **9. Final Recommendation:**
 - **Verdict:** Based on the final score, provide a concise final recommendation to an investor. Use the following decision guide:
-   - **>= 70 → Strong Candidate (Go)**
-   - **51–69 → Conditional (monitor, more diligence)**
-   - **< 50 → High Risk (No-Go)**
+  - **>= 70 → Strong Candidate (Go)**
+  - **51–69 → Conditional (monitor, more diligence)**
+  - **< 50 → High Risk (No-Go)**
 - **Confidence Score:** State the final calculated score from 0 to 100%.
 - **VC Scorecard Calculation:**
-   - Provide a table in Markdown with the following columns, ensuring the table has borders and proper alignment: **Category** (left aligned), **Score (1-10)** (center aligned), **Weightage (%)** (center aligned), **Weighted Score** (center aligned), and **Notes** (left aligned).
-   - Score each category 1–10 (1 = poor, 10 = excellent) based on the information in the pitch deck.
-   - Use the following fixed categories and weightages for the calculation:
-       - **Team** (30%)
-       - **Product** (15%)
-       - **Market** (20%)
-       - **Traction** (20%)
-       - **Financials** (10%)
-       - **M&A/Exit** (5%)
-- Show the weighted score for each category and sum them up to get the final score.
-- In the **Notes** column, provide a very brief one-line justification for the assigned score.
+  - Provide a table in Markdown with the following columns, ensuring the table has borders and proper alignment: **Category** (left aligned), **Score (1-10)** (center aligned), **Weightage (%)** (center aligned), **Weighted Score** (center aligned), and **Notes** (left aligned).
+  - Score each category 1–10 (1 = poor, 10 = excellent) based on the information in the pitch deck.
+  - Use the following fixed categories and weightages for the calculation:
+    - **Team** (30%)
+    - **Product** (15%)
+    - **Market** (20%)
+    - **Traction** (20%)
+    - **Financials** (10%)
+    - **M&A/Exit** (5%)
+  - Show the weighted score for each category and sum them up to get the final score.
+  - In the **Notes** column, provide a very brief one-line justification for the assigned score.
+ 
 - **Top 3 North Star Metrics:**
-   - Based on the company's industry, identify the top 3 North Star Metrics (NSMs) that matter most.
-   - Evaluate the company's performance against these NSMs, citing any relevant data or metrics found in the deck and providing their actual values.
+  - Based on the company's industry, identify the top 3 North Star Metrics (NSMs) that matter most.
+  - Evaluate the company's performance against these NSMs, citing any relevant data or metrics found in the deck and providing their actual values.
 - **Rationale:** Briefly explain the primary reasons for your recommendation, highlighting key strengths and major concerns based on the NSM analysis and score breakdown.
-    
+ 
 The summaries to be synthesized are below:
-    
-{full_text}
+ 
+{combined_text}
 """
-    
-    payload = {
-        "contents": [
-            {
-                "parts": [{"text": synthesis_prompt}]
+
+        payload = {
+            "contents": [{"parts": [{"text": user_prompt}]}],
+            "generationConfig": {
+                "temperature": 0.2,
+                "topP": 0.8,
+                "topK": 40
+            },
+            "systemInstruction": {
+                "parts": [{"text": system_prompt}]
             }
-        ]
-    }
-    
-    headers = {
-        "Content-Type": "application/json"
-    }
-
-    retries = 3
-    delay = 1
-
-    for attempt in range(retries):
-        try:
-            response = requests.post(GEMINI_API_URL, headers=headers, data=json.dumps(payload), timeout=180)
-            response.raise_for_status()
-            
-            result = response.json()
-            candidate = result.get('candidates')[0] if result.get('candidates') else None
-            if not candidate or not candidate.get('content') or not candidate['content'].get('parts'):
-                raise ValueError("Invalid API response format")
-            
-            return candidate['content']['parts'][0]['text']
+        }
         
-        except requests.exceptions.HTTPError as http_err:
-            print(f"HTTP error during synthesis: {http_err}")
-            if response.status_code in [429, 500, 503] and attempt < retries - 1:
-                time.sleep(delay)
-                delay *= 2
-            else:
-                raise
-        except requests.exceptions.RequestException as req_err:
-            print(f"Request error during synthesis: {req_err}")
-            if attempt < retries - 1:
-                time.sleep(delay)
-                delay *= 2
-            else:
-                raise
-        except (ValueError, IndexError) as parse_err:
-            print(f"JSON parsing error during synthesis: {parse_err}")
-            raise
+        response = requests.post(GEMINI_API_URL, headers={"Content-Type": "application/json"}, data=json.dumps(payload))
+        response.raise_for_status()
+        
+        result = response.json()
+        return result['candidates'][0]['content']['parts'][0]['text']
 
-    raise Exception("Failed to synthesize memo after multiple retries.")
+    except Exception as e:
+        print(f"Error synthesizing final memo: {e}")
+        return f"Error: Failed to synthesize the final memo. Details: {str(e)}"
 
-
-# --- Routes ---
 @app.route('/')
 def serve_index():
     print("SERVER: Request received for root URL '/'. Serving index.html...")
     return send_from_directory('.', 'index.html')
 
-@app.route('/ask', methods=['POST'])
-def handle_ask():
-    print("SERVER: Received POST request at /ask. Checking for file...")
-    # This is a streaming response to update the frontend in real-time.
-    # The `stream_with_context` is crucial here for long-running processes.
-    
+@app.route('/analyze', methods=['POST'])
+def analyze_pitch_deck():
+    """
+    Analyzes an uploaded PDF pitch deck and streams the result in real-time.
+    """
+    print("SERVER: Received POST request for /analyze.")
+
+    if 'pdf_file' not in request.files:
+        print("SERVER: No file part in the request.")
+        return jsonify({"error": "No file part in the request"}), 400
+
+    file = request.files['pdf_file']
+
+    if file.filename == '':
+        print("SERVER: No selected file.")
+        return jsonify({"error": "No selected file"}), 400
+
     def generate():
         temp_path = None
         try:
-            if 'pdf_file' not in request.files:
-                print("SERVER: Error: No file part in the request.")
-                yield json.dumps({"error": "No file part in the request."}) + '\n'
-                return
-
-            file = request.files['pdf_file']
-            
-            if file.filename == '':
-                print("SERVER: Error: No selected file.")
-                yield json.dumps({"error": "No selected file."}) + '\n'
-                return
-            
-            print(f"SERVER: File '{file.filename}' received. Saving to temporary path...")
+            # Save the file to a temporary location
             temp_path = os.path.join(UPLOAD_FOLDER, file.filename)
             file.save(temp_path)
-            print(f"SERVER: File saved to '{temp_path}'. Initiating analysis...")
+            print(f"SERVER: Saved uploaded file to {temp_path}")
 
-            yield json.dumps({"status": "Processing PDF pages..."}) + '\n'
+            yield json.dumps({"status": "Extracting images from PDF..."}) + '\n'
             all_images = pdf_to_base64_images(temp_path)
+            
             if not all_images:
-                print("SERVER: Failed to process PDF file.")
                 yield json.dumps({"error": "Failed to process PDF file."}) + '\n'
                 return
 
@@ -298,7 +256,7 @@ def handle_ask():
                 chunk_images = all_images[start_index:end_index]
                 
                 print(f"SERVER: Analyzing chunk {i + 1} of {num_chunks} (pages {start_index + 1} to {end_index})...")
-                yield json.dumps({"status": f"Analyzing chunk {i + 1} of {num_chunks}..."}) + '\n'
+                yield json.dumps({"status": f"Analyzing chunk {i + 1} of {num_chunks}... ({len(chunk_images)} pages)"}) + '\n'
                 chunk_summary = generate_memo_chunk(chunk_images, i + 1)
                 chunk_summaries.append(chunk_summary)
                 print(f"SERVER: Chunk {i + 1} analysis complete.")
@@ -322,7 +280,5 @@ def handle_ask():
     return Response(stream_with_context(generate()), mimetype='application/json')
 
 if __name__ == '__main__':
-    # When running locally, you might use app.run().
-    # On Render, Gunicorn will handle the server, using the Procfile settings.
-    print("SERVER: Application started. Waiting for requests.")
-    app.run(host='0.0.0.0', port=os.environ.get('PORT', 5000))
+    # You can specify the host to be '0.0.0.0' to make it accessible externally
+    app.run(debug=True, host='0.0.0.0', port=os.environ.get('PORT', 5000))
