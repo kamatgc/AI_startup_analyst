@@ -237,7 +237,14 @@ def analyze_pitch_deck():
         try:
             # Save the file to a temporary location
             temp_path = os.path.join(UPLOAD_FOLDER, file.filename)
-            file.save(temp_path)
+            
+            # --- The fix for the ValueError ---
+            # Read the file content into memory before saving to avoid the "closed file" error
+            file_content = file.read()
+            with open(temp_path, 'wb') as temp_file:
+                temp_file.write(file_content)
+            # --- End of fix ---
+
             print(f"SERVER: Saved uploaded file to {temp_path}")
 
             yield json.dumps({"status": "Extracting images from PDF..."}) + '\n'
