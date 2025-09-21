@@ -3,18 +3,16 @@ import json
 import base64
 import requests
 import fitz  # PyMuPDF
-from flask import Flask, request, jsonify, Response, stream_with_context
+from flask import Flask, request, jsonify, Response, stream_with_context, send_from_directory
 from flask_cors import CORS
 import traceback
 import time
 
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, static_folder='.')
 CORS(app)
 
 # --- Configuration and Constants ---
-# Use an environment variable for the API key in production, but for this example,
-# we'll hardcode it to match the provided working file.
 API_KEY = "AIzaSyCP1gTahHD0dTMhdQQEO2KlLr7HSti1R5I"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={API_KEY}"
 CHUNK_SIZE = 5
@@ -84,6 +82,7 @@ def call_gemini_api(prompt_text, images=None):
             time.sleep(2 ** i)
         except Exception as e:
             print(f"An error occurred during API call: {e} - Retrying...")
+            traceback.print_exc()
             time.sleep(2 ** i)
     raise Exception(f"Failed to get a successful response after {retries} retries.")
 
@@ -203,8 +202,15 @@ def synthesize_final_memo(summaries):
     return call_gemini_api(synthesis_prompt)
 
 # --- Routes ---
+@app.route('/')
+def serve_index():
+    """Serve the index.html file from the same directory."""
+    print("Server: Serving index.html")
+    return send_from_directory('.', 'index.html')
+
 @app.route('/ask', methods=['POST'])
 def ask_ai():
+    print("Server: Received POST request at /ask")
     if 'pdf_file' not in request.files:
         return jsonify({"error": "No file part"}), 400
 
@@ -219,18 +225,19 @@ def ask_ai():
         @stream_with_context
         def generate():
             try:
-                # First, get the generator for streaming updates during conversion
                 print("Server: File received. Initiating PDF processing...")
                 image_updates_generator = pdf_to_base64_images(temp_path)
                 
-                # Stream the conversion status updates
                 all_images = []
                 for update in image_updates_generator:
                     yield update
-                    
-                # The generator returns the full list of images after yielding all updates
-                all_images = next(image_updates_generator, [])
                 
+                # The generator returns the full list of images after yielding all updates
+                try:
+                    all_images = next(image_updates_generator)
+                except StopIteration:
+                    pass
+
                 if not all_images:
                     yield json.dumps({"error": "Failed to process PDF file."}) + '\n'
                     return
@@ -260,6 +267,7 @@ def ask_ai():
                 yield json.dumps({"error": "An unexpected server error occurred."}) + '\n'
             finally:
                 if temp_path and os.path.exists(temp_path):
+                    print(f"Server: Cleaning up temporary file: {temp_path}")
                     os.remove(temp_path)
     
     return Response(stream_with_context(generate()), mimetype='application/json')
