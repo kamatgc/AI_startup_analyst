@@ -9,7 +9,6 @@ import traceback
 import time
 
 # Initialize Flask app
-# The static_folder is set to '.' so Flask can serve files from the current directory.
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
@@ -27,16 +26,13 @@ if not os.path.exists(UPLOAD_FOLDER):
 # --- Helper Functions ---
 def pdf_to_base64_images(pdf_file_path):
     """
-    Converts each page of a PDF file to a Base64-encoded JPEG image.
-    This is a generator function to stream progress.
+    Converts each page of a PDF file to a list of Base64-encoded JPEG images.
+    Returns the list of images.
     """
+    images = []
     try:
         doc = fitz.open(pdf_file_path)
         num_pages = doc.page_count
-        images = []
-        
-        print(f"SERVER: Starting PDF conversion for {num_pages} pages...")
-        yield json.dumps({"status": f"Converting PDF to images (0/{num_pages} pages completed)..."}) + '\n'
         
         for page_num in range(num_pages):
             page = doc.load_page(page_num)
@@ -44,18 +40,11 @@ def pdf_to_base64_images(pdf_file_path):
             image_buffer = pix.tobytes(output='jpeg')
             images.append(base64.b64encode(image_buffer).decode('utf-8'))
             
-            print(f"SERVER: Converted page {page_num + 1} of {num_pages}.")
-            yield json.dumps({"status": f"Converting PDF to images ({page_num + 1}/{num_pages} pages completed)..."}) + '\n'
-            
         doc.close()
-        print("SERVER: PDF conversion complete.")
-        yield json.dumps({"status": "PDF conversion complete."}) + '\n'
-        
         return images
     except Exception as e:
         print(f"SERVER ERROR: Failed to convert PDF to images: {e}")
         traceback.print_exc()
-        yield json.dumps({"error": "Failed to process PDF file during conversion."}) + '\n'
         return []
 
 def call_gemini_api(prompt_text, images=None):
@@ -218,8 +207,8 @@ def serve_index():
 def ask_ai():
     print("SERVER: Received POST request at /ask. Checking for file...")
     if 'pdf_file' not in request.files:
-        print("SERVER: Error - 'pdf_file' not in request. Aborting.")
-        return jsonify({"error": "No file part"}), 400
+        print("SERVER: Error - 'pdf_file' not in request. The request body might be empty or malformed.")
+        return jsonify({"error": "No 'pdf_file' found in the request. Please ensure the file is correctly uploaded."}), 400
 
     file = request.files['pdf_file']
     if file.filename == '':
@@ -229,24 +218,19 @@ def ask_ai():
     print(f"SERVER: File '{file.filename}' received. Saving to temporary path...")
     temp_path = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(temp_path)
-    print(f"SERVER: File saved to '{temp_path}'. Initiating analysis...")
     
     @stream_with_context
     def generate():
+        temp_path_cleanup = None
         try:
-            print("SERVER: Starting stream for analysis...")
-            image_updates_generator = pdf_to_base64_images(temp_path)
+            nonlocal temp_path
+            temp_path_cleanup = temp_path
             
-            all_images = []
-            for update in image_updates_generator:
-                yield update
+            print(f"SERVER: File saved to '{temp_path}'. Initiating analysis...")
+            yield json.dumps({"status": "Converting PDF to images..."}) + '\n'
             
-            # The generator returns the full list of images after yielding all updates
-            try:
-                all_images = next(image_updates_generator)
-            except StopIteration:
-                pass
-
+            all_images = pdf_to_base64_images(temp_path)
+            
             if not all_images:
                 print("SERVER: Error - No images processed from PDF. Aborting.")
                 yield json.dumps({"error": "Failed to process PDF file."}) + '\n'
@@ -279,8 +263,8 @@ def ask_ai():
             traceback.print_exc()
             yield json.dumps({"error": "An unexpected server error occurred."}) + '\n'
         finally:
-            if temp_path and os.path.exists(temp_path):
-                print(f"SERVER: Cleaning up temporary file: {temp_path}")
-                os.remove(temp_path)
+            if temp_path_cleanup and os.path.exists(temp_path_cleanup):
+                print(f"SERVER: Cleaning up temporary file: {temp_path_cleanup}")
+                os.remove(temp_path_cleanup)
     
     return Response(stream_with_context(generate()), mimetype='application/json')

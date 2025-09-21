@@ -86,7 +86,7 @@
                 <div class="w-full text-center">
                     <label for="pdf-file" class="flex flex-col items-center justify-center w-full h-48 border-2 border-gray-300 border-dashed rounded-2xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
                         <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                            <svg class="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 0 01-4-4v-4m0 0a4 4 0 014-4h4m0 0l-4 4m4-4l-4 4m0 0l4-4m-4 4h4m0 0a4 4 0 014 4v4m-4-4a4 4 0 01-4-4m4 4h-4m4-4v4"></path></svg>
+                            <svg class="w-10 h-10 mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4v-4m0 0a4 4 0 014-4h4m0 0l-4 4m4-4l-4 4m0 0l4-4m-4 4h4m0 0a4 4 0 014 4v4m-4-4a4 4 0 01-4-4m4 4h-4m4-4v4"></path></svg>
                             <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Click to upload</span> or drag and drop</p>
                             <p class="text-xs text-gray-500">Only PDF files up to 20MB</p>
                         </div>
@@ -155,13 +155,13 @@
             // Submit button handler
             submitBtn.addEventListener('click', async () => {
                 if (isProcessing) return;
-
+                
                 const file = fileInput.files[0];
                 if (!file) {
                     displayError('Please select a PDF file.');
                     return;
                 }
-
+                
                 isProcessing = true;
                 submitBtn.disabled = true;
                 showLoading('Uploading file...');
@@ -169,6 +169,8 @@
                 try {
                     const formData = new FormData();
                     formData.append('pdf_file', file);
+
+                    console.log('Sending request with file:', file.name);
 
                     const response = await fetch(API_URL, {
                         method: 'POST',
@@ -226,6 +228,8 @@
                 memoSection.classList.add('hidden');
                 uploadSection.classList.remove('hidden');
                 memoOutput.innerHTML = '';
+                // Clear any previous error messages
+                errorSection.classList.add('hidden');
             });
 
             function showLoading(message) {
