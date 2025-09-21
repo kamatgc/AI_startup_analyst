@@ -9,7 +9,6 @@ from PyPDF2 import PdfReader
 from google.api_core.exceptions import ResourceExhausted
 
 app = Flask(__name__)
-# Allow CORS for all domains.
 CORS(app)
 
 # Set up the Gemini API key from environment variables
@@ -102,40 +101,48 @@ def handle_ask():
     """
     Handles the POST request for analyzing a pitch deck.
     """
-    if "pdf_file" not in request.files:
+    print("Received a request to /ask")
+    # Check if 'pdf_file' is in the request files
+    if 'pdf_file' not in request.files:
+        print("Error: No file part in the request.")
         return jsonify({"error": "No file part in the request"}), 400
 
-    file = request.files["pdf_file"]
-    if file.filename == "":
+    file = request.files['pdf_file']
+
+    # Check if a file was selected
+    if file.filename == '':
+        print("Error: No selected file.")
         return jsonify({"error": "No selected file"}), 400
+    
+    # Check if the file has content
+    if file.content_length == 0:
+        print("Error: Empty file uploaded.")
+        return jsonify({"error": "Empty file uploaded"}), 400
 
-    if file:
-        print("Received a request to /ask")
-        try:
-            # Create a BytesIO object from the file data
-            file_stream = io.BytesIO(file.read())
+    print(f"Received file: {file.filename}, Content-Length: {file.content_length}")
+    
+    try:
+        # Create a BytesIO object from the file data
+        file_stream = io.BytesIO(file.read())
+        
+        # Extract text from the PDF directly from the stream
+        text_content = extract_text_from_pdf(file_stream)
+        file_stream.close() # Close the stream
 
-            # Extract text from the PDF directly from the stream
-            text_content = extract_text_from_pdf(file_stream)
-            file_stream.close() # Close the stream
+        if text_content:
+            print(f"Extracted text content of size {len(text_content)} characters.")
+            investment_memo = analyze_pitch_deck(text_content)
+            return jsonify({"response": investment_memo})
+        else:
+            print("Failed to extract text from PDF.")
+            return jsonify({"error": "Failed to extract text from PDF."}), 500
 
-            if text_content:
-                print(f"Extracted text content of size {len(text_content)} characters.")
-                investment_memo = analyze_pitch_deck(text_content)
-                return jsonify({"response": investment_memo})
-            else:
-                return jsonify({"error": "Failed to extract text from PDF."}), 500
-
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            return jsonify({"error": f"An error occurred: {e}"}), 500
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"error": f"An error occurred: {e}"}), 500
 
     return jsonify({"error": "Unknown error occurred"}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    # It's better to use gunicorn as the production server directly.
-    # The `if __name__ == "__main__"` block is primarily for local testing.
-    # The deploy command on Render should be configured to run gunicorn directly.
-    # For example: `gunicorn --bind 0.0.0.0:$PORT app:app`
     app.run(host="0.0.0.0", port=port, debug=True)
