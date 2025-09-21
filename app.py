@@ -1,46 +1,101 @@
 import os
-import io
-import time
+import json
+import base64
 import requests
-import google.generativeai as genai
-from flask import Flask, jsonify, request
+import fitz  # PyMuPDF
+from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
-from PyPDF2 import PdfReader
-from google.api_core.exceptions import ResourceExhausted
+import traceback
 
+# Initialize Flask app
 app = Flask(__name__)
 CORS(app)
 
-# Set up the Gemini API key from environment variables
-api_key = os.environ.get("GEMINI_API_KEY")
-if not api_key:
-    raise ValueError("GEMINI_API_KEY environment variable not set")
+# --- Configuration and Constants ---
+# Use an environment variable for the API key in production, but for this example,
+# we'll hardcode it to match the provided working file.
+API_KEY = "AIzaSyCP1gTahHD0dTMhdQQEO2KlLr7HSti1R5I"
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={API_KEY}"
+CHUNK_SIZE = 5
+UPLOAD_FOLDER = 'temp_uploads'
 
-genai.configure(api_key=api_key)
+# Ensure the upload folder exists
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(os.path.join(os.getcwd(), UPLOAD_FOLDER))
 
-# We are switching to the 'gemini-2.5-flash-preview-05-20' model for better free-tier performance.
-# This model is faster and has a higher rate limit, which is ideal for an MVP.
-model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
-
-def extract_text_from_pdf(pdf_file):
+# --- Helper Functions ---
+def pdf_to_base64_images(pdf_file_path):
     """
-    Extracts text from a PDF file.
+    Converts each page of a PDF file to a Base64-encoded JPEG image.
     """
+    images = []
     try:
-        reader = PdfReader(pdf_file)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text() or ""
-        return text
+        doc = fitz.open(pdf_file_path)
+        for page_num in range(doc.page_count):
+            page = doc.load_page(page_num)
+            pix = page.get_pixmap(dpi=200)
+            image_buffer = pix.tobytes(output='jpeg')
+            images.append(base64.b64encode(image_buffer).decode('utf-8'))
+        doc.close()
     except Exception as e:
-        print(f"Error extracting text from PDF: {e}")
-        return None
+        print(f"Error converting PDF to images: {e}")
+        return []
+    return images
 
-def analyze_pitch_deck(text_content):
+def call_gemini_api(prompt_text, images=None):
     """
-    Analyzes the pitch deck text content using the Gemini API and the full, detailed prompt.
+    Calls the Gemini API with a text prompt and optional images.
+    Implements a simple retry mechanism for robustness.
     """
-    # The exact prompt you provided, with the text placeholder.
+    retries = 3
+    for i in range(retries):
+        try:
+            parts = [{"text": prompt_text}]
+            if images:
+                for img_base64 in images:
+                    parts.append({"inlineData": {"mimeType": "image/jpeg", "data": img_base64}})
+            
+            payload = {
+                "contents": [{"parts": parts}]
+            }
+            
+            response = requests.post(GEMINI_API_URL, json=payload, timeout=60)
+            response.raise_for_status()
+            
+            return response.json()['candidates'][0]['content']['parts'][0]['text']
+        except requests.exceptions.HTTPError as e:
+            print(f"HTTP Error: {e} - Retrying...")
+            time.sleep(2 ** i)
+        except Exception as e:
+            print(f"An error occurred during API call: {e} - Retrying...")
+            time.sleep(2 ** i)
+    raise Exception(f"Failed to get a successful response after {retries} retries.")
+
+def generate_memo_chunk(images, chunk_number):
+    """
+    Generates a summary for a chunk of images.
+    """
+    chunk_prompt = f"""
+    You are an expert financial analyst. You have been provided with a chunk of a startup pitch deck (images {chunk_number}).
+    
+    Your task is to summarize the key information from these pages, including:
+    - Team details (names, roles, background)
+    - Product features and stage
+    - Market size and growth
+    - Financials (revenue, burn rate, runway, projections)
+    - Traction (customers, partnerships, awards)
+    - Investment terms (valuation, funding round)
+    
+    Format the summary as concise, easy-to-read text.
+    """
+    return call_gemini_api(chunk_prompt, images=images)
+
+def synthesize_final_memo(summaries):
+    """
+    Synthesizes all chunk summaries into a single, professional investment memo.
+    """
+    full_text = "\\n\\n".join(summaries)
+    
     synthesis_prompt = f"""
     You are an expert financial analyst. You have been provided with several summaries of a startup pitch deck.
     
@@ -126,86 +181,64 @@ def analyze_pitch_deck(text_content):
     
     The summaries to be synthesized are below:
     
-    {text_content}
+    {full_text}
     """
-
-    prompt_parts = [
-        {"text": synthesis_prompt}
-    ]
-
-    # Implement a retry mechanism with exponential backoff for a more robust application.
-    max_retries = 5
-    base_delay = 1 # seconds
-    for attempt in range(max_retries):
-        try:
-            response = model.generate_content(prompt_parts)
-            # Handle empty response
-            if response and response.text:
-                return response.text
-            else:
-                return "Error: Empty response from model."
-        except ResourceExhausted as e:
-            delay = base_delay * (2 ** attempt)
-            print(f"ResourceExhausted error (429) on attempt {attempt + 1}. Retrying in {delay} seconds.")
-            time.sleep(delay)
-            if attempt == max_retries - 1:
-                return f"Error: Failed to get a response after {max_retries} attempts due to quota limits."
-        except Exception as e:
-            print(f"An error occurred: {e}")
-            return f"An unexpected error occurred: {e}"
     
-    return "Error: Failed to get a response after multiple retries."
+    return call_gemini_api(synthesis_prompt)
 
+# --- Routes ---
+@app.route('/')
+def serve_index():
+    return app.send_static_file('index.html')
 
-@app.route("/")
-def home():
-    """
-    Simple route to confirm the Flask server is running.
-    """
-    return "AI Pitch Deck Analyst Backend is running!"
-
-@app.route("/ask", methods=["POST"])
-def handle_ask():
-    """
-    Handles the POST request for analyzing a pitch deck.
-    """
-    print("Received a request to /ask")
-    # Check if 'pdf_file' is in the request files
+@app.route('/ask', methods=['POST'])
+def ask_ai():
     if 'pdf_file' not in request.files:
-        print("Error: No file part in the request.")
-        return jsonify({"error": "No file part in the request"}), 400
+        return jsonify({"error": "No file part"}), 400
 
     file = request.files['pdf_file']
-
-    # Check if a file was selected
     if file.filename == '':
-        print("Error: No selected file.")
         return jsonify({"error": "No selected file"}), 400
 
-    print(f"Received file: {file.filename}")
-    
-    try:
-        # Create a BytesIO object from the file data
-        file_stream = io.BytesIO(file.read())
+    if file:
+        temp_path = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(temp_path)
         
-        # Extract text from the PDF directly from the stream
-        text_content = extract_text_from_pdf(file_stream)
-        file_stream.close() # Close the stream
+        @stream_with_context
+        def generate():
+            try:
+                all_images = pdf_to_base64_images(temp_path)
+                
+                if not all_images:
+                    yield json.dumps({"error": "Failed to process PDF file."}) + '\n'
+                    return
 
-        if text_content:
-            print(f"Extracted text content of size {len(text_content)} characters.")
-            investment_memo = analyze_pitch_deck(text_content)
-            return jsonify({"response": investment_memo})
-        else:
-            print("Failed to extract text from PDF. The file may be empty or unreadable.")
-            return jsonify({"error": "Failed to extract text from PDF. The file may be empty or unreadable."}), 500
+                chunk_summaries = []
+                num_chunks = (len(all_images) + CHUNK_SIZE - 1) // CHUNK_SIZE
+                
+                for i in range(num_chunks):
+                    start_index = i * CHUNK_SIZE
+                    end_index = min(start_index + CHUNK_SIZE, len(all_images))
+                    chunk_images = all_images[start_index:end_index]
+                    
+                    yield json.dumps({"status": f"Analyzing chunk {i + 1} of {num_chunks}..."}) + '\n'
+                    chunk_summary = generate_memo_chunk(chunk_images, i + 1)
+                    chunk_summaries.append(chunk_summary)
 
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return jsonify({"error": f"An error occurred: {e}"}), 500
+                yield json.dumps({"status": "Synthesizing final investment memo..."}) + '\n'
+                final_memo = synthesize_final_memo(chunk_summaries)
+                
+                yield json.dumps({"status": "Analysis complete.", "memo": final_memo}) + '\n'
+                
+            except Exception as e:
+                print(f"FATAL ERROR: {e}")
+                traceback.print_exc()
+                yield json.dumps({"error": "An unexpected server error occurred."}) + '\n'
+            finally:
+                if temp_path and os.path.exists(temp_path):
+                    os.remove(temp_path)
+    
+    return Response(stream_with_context(generate()), mimetype='application/json')
 
-    return jsonify({"error": "Unknown error occurred"}), 500
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
