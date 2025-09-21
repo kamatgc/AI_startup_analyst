@@ -1,92 +1,144 @@
 import os
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from werkzeug.utils import secure_filename
-from dotenv import load_dotenv
+import io
+import time
+import requests
 import google.generativeai as genai
-import fitz  # PyMuPDF
-import json
-import logging
-
-# Set logging level
-logging.basicConfig(level=logging.DEBUG)
-
-# Load environment variables
-load_dotenv()
-
-# Configure Google API
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel('gemini-1.5-pro-latest')
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from PyPDF2 import PdfReader
+from google.api_core.exceptions import ResourceExhausted
 
 app = Flask(__name__)
+# Allow CORS for all domains.
+CORS(app)
 
-# Configure CORS to allow requests from your frontend's domain
-# Replace 'https://ai-pitchdeck-frontend.onrender.com' with the actual URL
-# of your deployed frontend. You can also use a wildcard '*' for
-# development, but it's less secure.
-CORS(app, origins=["https://ai-pitchdeck-frontend.onrender.com"])
+# Set up the Gemini API key from environment variables
+api_key = os.environ.get("GEMINI_API_KEY")
+if not api_key:
+    raise ValueError("GEMINI_API_KEY environment variable not set")
 
-@app.route('/ask', methods=['POST'])
+genai.configure(api_key=api_key)
+
+# We are switching to the 'gemini-2.5-flash-preview-05-20' model for better free-tier performance.
+# This model is faster and has a higher rate limit, which is ideal for an MVP.
+model = genai.GenerativeModel('gemini-2.5-flash-preview-05-20')
+
+def extract_text_from_pdf(pdf_file):
+    """
+    Extracts text from a PDF file.
+    """
+    try:
+        reader = PdfReader(pdf_file)
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text() or ""
+        return text
+    except Exception as e:
+        print(f"Error extracting text from PDF: {e}")
+        return None
+
+def analyze_pitch_deck(text_content):
+    """
+    Analyzes the pitch deck text content using the Gemini API.
+    """
+    # Define the prompt for the Gemini API.
+    prompt_text = (
+        "You are an expert AI startup analyst. Your task is to analyze a pitch deck "
+        "and generate a concise, detailed investment memo. The memo should be "
+        "structured clearly with the following sections:\n\n"
+        "1. Executive Summary: A brief, high-level overview of the company, "
+        "its purpose, and the investment opportunity.\n"
+        "2. Team: A summary of the founding team's experience and qualifications.\n"
+        "3. Problem: The problem the company is solving.\n"
+        "4. Solution: The product or service offered by the company.\n"
+        "5. Market Opportunity: The total addressable market (TAM) and the "
+        "potential for growth.\n"
+        "6. Business Model: How the company makes money.\n"
+        "7. Traction: Any key milestones, user growth, revenue, or partnerships.\n"
+        "8. Competition: A brief analysis of competitors and the company's "
+        "competitive advantage.\n\n"
+        "Here is the text extracted from the pitch deck:\n\n"
+        f"{text_content}"
+    )
+
+    prompt_parts = [
+        {"text": prompt_text}
+    ]
+
+    # Implement a retry mechanism with exponential backoff for a more robust application.
+    # This will help prevent ResourceExhausted errors (429) that occur in the free tier.
+    max_retries = 5
+    base_delay = 1 # seconds
+    for attempt in range(max_retries):
+        try:
+            response = model.generate_content(prompt_parts)
+            # Handle empty response
+            if response and response.text:
+                return response.text
+            else:
+                return "Error: Empty response from model."
+        except ResourceExhausted as e:
+            delay = base_delay * (2 ** attempt)
+            print(f"ResourceExhausted error (429) on attempt {attempt + 1}. Retrying in {delay} seconds.")
+            time.sleep(delay)
+            if attempt == max_retries - 1:
+                return f"Error: Failed to get a response after {max_retries} attempts due to quota limits."
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return f"An unexpected error occurred: {e}"
+    
+    return "Error: Failed to get a response after multiple retries."
+
+
+@app.route("/")
+def home():
+    """
+    Simple route to confirm the Flask server is running.
+    """
+    return "AI Pitch Deck Analyzer Backend is running!"
+
+@app.route("/ask", methods=["POST"])
 def handle_ask():
-    logging.debug("Received a request to /ask")
-    if 'file' not in request.files:
-        logging.error("No file part in the request")
-        return jsonify({'detail': 'No file part'}), 400
+    """
+    Handles the POST request for analyzing a pitch deck.
+    """
+    if "pdf_file" not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
 
-    file = request.files['file']
-    if file.filename == '':
-        logging.error("No selected file")
-        return jsonify({'detail': 'No selected file'}), 400
+    file = request.files["pdf_file"]
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
 
     if file:
-        filename = secure_filename(file.filename)
-        filepath = os.path.join("/tmp", filename)
-        file.save(filepath)
-        logging.debug(f"File saved to {filepath}")
-
+        print("Received a request to /ask")
         try:
-            doc = fitz.open(filepath)
-            text_content = ""
-            for page in doc:
-                text_content += page.get_text()
-            logging.debug(f"Extracted text content of size {len(text_content)} characters.")
+            # Save the file to a temporary location to process
+            temp_file_path = f"/tmp/{file.filename}"
+            file.save(temp_file_path)
+            print(f"File saved to {temp_file_path}")
 
-            prompt_parts = [
-                "You are an AI Startup Analyst. I will provide you with a pitch deck in text format. Your task is to analyze it and generate a detailed investment memo. The memo should cover the following sections:",
-                "1. **Executive Summary:** A brief, high-level overview of the startup, its business model, and the investment opportunity.",
-                "2. **Team:** An analysis of the founding team's experience and expertise.",
-                "3. **Problem & Solution:** A clear description of the problem the startup is solving and its proposed solution.",
-                "4. **Market Analysis:** An assessment of the target market size, growth potential, and competitive landscape.",
-                "5. **Product/Service:** A review of the product or service, its key features, and unique selling propositions.",
-                "6. **Business Model & Traction:** Details on how the startup generates revenue and any key metrics or milestones achieved (e.g., users, revenue, growth rates).",
-                "7. **Financials (if available):** An overview of the financial health, including revenue, expenses, and fundraising history.",
-                "8. **Investment Ask & Use of Funds:** The amount of capital being raised and how it will be used.",
-                "9. **Risks:** An identification of potential risks and challenges.",
-                "10. **Conclusion & Recommendation:** A final recommendation on whether to invest, supported by a summary of the key findings.",
-                "---",
-                "Pitch Deck Text:",
-                text_content,
-                "---",
-                "Please format your response using Markdown for easy readability. Do not include any filler text before or after the investment memo itself. Start directly with the memo."
-            ]
-            
-            response = model.generate_content(prompt_parts)
-            
-            # The API returns markdown content within a 'text' field.
-            memo_markdown = response.text
-            
-            logging.debug("Successfully generated investment memo.")
-            
-            return jsonify({'markdown': memo_markdown}), 200
+            # Extract text from the PDF
+            with open(temp_file_path, "rb") as pdf_file_obj:
+                text_content = extract_text_from_pdf(pdf_file_obj)
+
+            if text_content:
+                print(f"Extracted text content of size {len(text_content)} characters.")
+                investment_memo = analyze_pitch_deck(text_content)
+                return jsonify({"response": investment_memo})
+            else:
+                return jsonify({"error": "Failed to extract text from PDF."}), 500
 
         except Exception as e:
-            logging.error(f"An error occurred: {e}", exc_info=True)
-            return jsonify({'detail': f'An internal error occurred during analysis: {e}'}), 500
+            print(f"An error occurred: {e}")
+            return jsonify({"error": f"An error occurred: {e}"}), 500
         finally:
-            if os.path.exists(filepath):
-                os.remove(filepath)
-                logging.debug(f"Temporary file {filepath} removed.")
+            # Clean up the temporary file
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+                print(f"Temporary file {temp_file_path} removed.")
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
+    return jsonify({"error": "Unknown error occurred"}), 500
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
