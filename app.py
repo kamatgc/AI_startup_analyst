@@ -9,6 +9,7 @@ import traceback
 import time
 
 # Initialize Flask app
+# The static_folder is set to '.' so Flask can serve files from the current directory.
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
