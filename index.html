@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Startup Analyst</title>
+    <title>AI Analyst for Startup Evaluation</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -28,148 +28,179 @@
             padding: 0.75rem 1.5rem;
             border-radius: 0.75rem;
             font-weight: 600;
-            transition: all 0.2s;
+            transition: background-color 0.3s ease;
         }
         .btn-primary:hover {
             background-color: #4338ca;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .file-input {
+            cursor: pointer;
         }
         .hidden {
-            display: none !important;
+            display: none;
         }
-        #loading-dots span {
-            animation: bounce 1s infinite;
+        #memo-output h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0.5rem;
         }
-        #loading-dots span:nth-child(2) { animation-delay: 0.2s; }
-        #loading-dots span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
+        #memo-output h2 {
+            font-size: 1.875rem;
+            font-weight: 600;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 0.25rem;
+        }
+        #memo-output h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+        #memo-output p {
+            margin-bottom: 1rem;
+            line-height: 1.6;
+        }
+        #memo-output ul, #memo-output ol {
+            margin-bottom: 1rem;
+            list-style-position: inside;
+        }
+        #memo-output li {
+            margin-bottom: 0.5rem;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen">
-
-    <div class="container">
-        <div class="card p-8">
-            <h1 class="text-3xl font-bold text-gray-900 text-center mb-6">AI Pitch Deck Analyst</h1>
+    <div class="container p-4">
+        <div id="upload-section" class="card p-8 text-center transition-all duration-500">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">AI Startup Analyst</h1>
+            <p class="text-gray-500 mb-6">Upload a pitch deck to get a detailed investment memo.</p>
             
-            <!-- Upload Section -->
-            <div id="upload-section" class="flex flex-col items-center">
-                <p class="text-gray-600 text-center mb-6">
-                    Upload a PDF of a startup pitch deck and get an instant investment memo.
-                </p>
-                <div class="w-full">
-                    <input type="file" id="pdf-file-input" class="hidden" accept="application/pdf">
-                    <label for="pdf-file-input" class="w-full cursor-pointer bg-gray-50 hover:bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-6 flex flex-col items-center justify-center text-gray-500 mb-6">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.884 2.89L5 20h14a2 2 0 002-2V7a2 2 0 00-2-2h-3l-2-3H9L7 5H5a2 2 0 00-2 2v9a4 4 0 014-4z" />
-                        </svg>
-                        <span id="file-name" class="text-sm font-medium">Select a PDF file</span>
-                        <span class="text-xs text-gray-400 mt-1">Max file size 25 MB</span>
-                    </label>
-                </div>
-                <button id="submit-btn" class="btn-primary w-full md:w-auto">
+            <form id="upload-form" class="space-y-6">
+                <label for="pdf-file" class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-8 cursor-pointer hover:border-indigo-500 transition-colors duration-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="12" y1="12" x2="12" y2="18"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    <span id="file-name" class="mt-4 text-gray-500">Select a PDF file</span>
+                    <input type="file" id="pdf-file" name="pdf_file" accept="application/pdf" class="hidden file-input">
+                </label>
+                <button type="submit" id="submit-btn" class="btn-primary w-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
                     <span id="btn-text">Analyze Pitch Deck</span>
                 </button>
-            </div>
+            </form>
+        </div>
 
-            <!-- Loading/Status Section -->
-            <div id="loading-section" class="hidden flex flex-col items-center text-center">
-                <div class="flex space-x-2 text-indigo-500">
-                    <span id="loading-dots" class="flex">
-                        <span class="text-2xl">.</span>
-                        <span class="text-2xl">.</span>
-                        <span class="text-2xl">.</span>
-                    </span>
-                </div>
-                <p id="status-message" class="text-gray-600 mt-4 text-lg font-medium">Preparing analysis...</p>
-                <div class="w-full bg-gray-200 rounded-full h-2.5 mt-4 hidden">
-                    <div class="bg-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
-                </div>
-            </div>
+        <div id="loading-section" class="card p-8 hidden text-center transition-all duration-500">
+            <div class="spinner mx-auto mb-4"></div>
+            <p id="status-message" class="text-gray-600 mb-2">Starting analysis...</p>
+        </div>
 
-            <!-- Memo Display Section -->
-            <div id="memo-section" class="hidden">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-bold text-gray-800">Investment Memo</h2>
-                    <button id="new-analysis-btn" class="text-indigo-600 hover:text-indigo-800 font-medium text-sm transition-colors">
-                        New Analysis
-                    </button>
-                </div>
-                <div id="memo-output" class="bg-gray-50 p-6 rounded-xl prose max-w-none text-gray-800 leading-relaxed overflow-auto max-h-[70vh]">
-                    <!-- Memo will be rendered here -->
-                </div>
+        <div id="memo-section" class="card p-8 hidden transition-all duration-500">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">Investment Memo</h2>
+                <button id="back-btn" class="text-indigo-600 hover:text-indigo-800 transition-colors duration-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back
+                </button>
             </div>
-
-            <!-- Error Section -->
-            <div id="error-section" class="hidden text-center text-red-600">
-                <p class="font-medium text-lg"></p>
-                <button id="try-again-btn" class="mt-4 btn-primary">Try Again</button>
-            </div>
-
+            <div id="memo-output" class="prose max-w-none text-gray-700"></div>
+        </div>
+        
+        <div id="error-section" class="card p-8 hidden text-center transition-all duration-500">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-500 mx-auto mb-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+            <h2 class="text-xl font-bold text-gray-800 mb-2">Analysis Failed</h2>
+            <p class="text-gray-600"></p>
         </div>
     </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const fileInput = document.getElementById('pdf-file-input');
+            const uploadForm = document.getElementById('upload-form');
+            const fileInput = document.getElementById('pdf-file');
             const fileNameSpan = document.getElementById('file-name');
             const submitBtn = document.getElementById('submit-btn');
             const btnText = document.getElementById('btn-text');
             const uploadSection = document.getElementById('upload-section');
             const loadingSection = document.getElementById('loading-section');
-            const statusMessage = document.getElementById('status-message');
             const memoSection = document.getElementById('memo-section');
             const memoOutput = document.getElementById('memo-output');
             const errorSection = document.getElementById('error-section');
-            const newAnalysisBtn = document.getElementById('new-analysis-btn');
+            const statusMessage = document.getElementById('status-message');
+            const backBtn = document.getElementById('back-btn');
+
+            const API_URL = '/analyze';
 
             fileInput.addEventListener('change', () => {
-                const file = fileInput.files[0];
-                if (file) {
-                    fileNameSpan.textContent = file.name;
+                if (fileInput.files.length > 0) {
+                    fileNameSpan.textContent = fileInput.files[0].name;
                 } else {
                     fileNameSpan.textContent = 'Select a PDF file';
                 }
             });
 
-            submitBtn.addEventListener('click', async () => {
+            uploadForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
                 const file = fileInput.files[0];
                 if (!file) {
-                    displayError('Please select a PDF file to upload.');
+                    // Using a more user-friendly message since alert() is not allowed.
+                    statusMessage.textContent = 'Please select a PDF file to upload.';
+                    loadingSection.classList.remove('hidden');
+                    setTimeout(() => {
+                        loadingSection.classList.add('hidden');
+                    }, 3000);
                     return;
                 }
 
-                showLoading('Uploading file...');
-                
-                const formData = new FormData();
-                formData.append('pdf_file', file);
+                showLoading('Starting analysis...');
                 
                 try {
-                    const response = await fetch('/ask', {
+                    const formData = new FormData();
+                    formData.append('pdf_file', file);
+
+                    const response = await fetch(API_URL, {
                         method: 'POST',
                         body: formData,
                     });
 
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                    if (!response.body) {
+                        throw new Error("ReadableStream not yet supported in this browser.");
                     }
 
-                    // --- FIX START: Stream processing the response ---
                     const reader = response.body.getReader();
-                    const decoder = new TextDecoder('utf-8');
+                    const decoder = new TextDecoder();
                     let result = '';
-
+                    
                     while (true) {
                         const { done, value } = await reader.read();
                         if (done) break;
-
-                        result += decoder.decode(value, { stream: true });
-                        const lines = result.split('\n');
-                        result = lines.pop(); // Keep incomplete line at the end
-
+                        
+                        const chunk = decoder.decode(value, { stream: true });
+                        const lines = chunk.split('\n');
+                        
                         for (const line of lines) {
                             if (line.trim() === '') continue;
                             try {
@@ -178,30 +209,34 @@
                                     statusMessage.textContent = data.status;
                                 }
                                 if (data.memo) {
-                                    displayMemo(data.memo);
-                                    return; // Analysis is complete, exit the loop
+                                    result = data.memo;
                                 }
                                 if (data.error) {
                                     throw new Error(data.error);
                                 }
-                            } catch (e) {
-                                console.error('Failed to parse JSON:', e, line);
+                            } catch (error) {
+                                console.error('Failed to parse JSON:', error);
+                                // The stream might contain non-JSON data or be malformed, just ignore for now
                             }
                         }
                     }
-                    // --- FIX END ---
+
+                    if (result) {
+                        displayMemo(result);
+                    } else {
+                        displayError("Analysis failed to return a memo. Please try a different file.");
+                    }
+
                 } catch (error) {
                     console.error('Fetch error:', error);
-                    displayError(`Analysis failed: ${error.message}. Please try again.`);
+                    displayError(`An error occurred: ${error.message}`);
                 }
             });
 
-            newAnalysisBtn.addEventListener('click', () => {
+            backBtn.addEventListener('click', () => {
                 memoSection.classList.add('hidden');
                 uploadSection.classList.remove('hidden');
                 memoOutput.innerHTML = '';
-                fileInput.value = ''; // Reset the file input
-                fileNameSpan.textContent = 'Select a PDF file';
             });
 
             function showLoading(message) {
