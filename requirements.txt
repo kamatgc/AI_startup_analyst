@@ -1,5 +1,5 @@
-google-generativeai
 Flask
-flask-cors
-PyPDF2
+Flask-Cors
+requests
+PyMuPDF
 gunicorn
