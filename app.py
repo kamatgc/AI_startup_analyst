@@ -6,6 +6,7 @@ import fitz  # PyMuPDF
 from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 import traceback
+import time
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -207,6 +208,10 @@ def ask_ai():
         @stream_with_context
         def generate():
             try:
+                # NEW: Send a status update immediately after receiving the file
+                yield json.dumps({"status": "File received. Processing pages..."}) + '\n'
+                print("Server: File received. Processing pages...")
+                
                 all_images = pdf_to_base64_images(temp_path)
                 
                 if not all_images:
@@ -222,10 +227,12 @@ def ask_ai():
                     chunk_images = all_images[start_index:end_index]
                     
                     yield json.dumps({"status": f"Analyzing chunk {i + 1} of {num_chunks}..."}) + '\n'
+                    print(f"Server: Analyzing chunk {i + 1} of {num_chunks}...")
                     chunk_summary = generate_memo_chunk(chunk_images, i + 1)
                     chunk_summaries.append(chunk_summary)
 
                 yield json.dumps({"status": "Synthesizing final investment memo..."}) + '\n'
+                print("Server: Synthesizing final investment memo...")
                 final_memo = synthesize_final_memo(chunk_summaries)
                 
                 yield json.dumps({"status": "Analysis complete.", "memo": final_memo}) + '\n'
