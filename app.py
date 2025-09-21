@@ -1,4 +1,5 @@
 import os
+import io
 import json
 import base64
 import requests
@@ -9,7 +10,6 @@ import traceback
 import time
 
 # Initialize Flask app
-# The static_folder is set to '.' so Flask can serve files from the current directory.
 app = Flask(__name__, static_folder='.')
 CORS(app)
 
@@ -26,13 +26,14 @@ if not os.path.exists(UPLOAD_FOLDER):
     print(f"SERVER: Created upload folder at {UPLOAD_FOLDER}")
 
 # --- Helper Functions ---
-def pdf_to_base64_images(pdf_file_path):
+def pdf_to_base64_images(pdf_content):
     """
-    Converts each page of a PDF file to a Base64-encoded JPEG image.
+    Converts each page of a PDF file (from an in-memory buffer) to a Base64-encoded JPEG image.
     This is a generator function to stream progress.
     """
     try:
-        doc = fitz.open(pdf_file_path)
+        # Open the PDF directly from the in-memory buffer
+        doc = fitz.open(stream=pdf_content, filetype="pdf")
         images = []
         for page_num in range(doc.page_count):
             page = doc.load_page(page_num)
@@ -40,6 +41,7 @@ def pdf_to_base64_images(pdf_file_path):
             image_buffer = pix.tobytes("jpeg")
             encoded_image = base64.b64encode(image_buffer).decode('utf-8')
             images.append({"mimeType": "image/jpeg", "data": encoded_image})
+        doc.close()
         return images
     except Exception as e:
         print(f"Error converting PDF to images: {e}")
@@ -232,17 +234,18 @@ def analyze_pitch_deck():
         print("SERVER: No selected file.")
         return jsonify({"error": "No selected file"}), 400
 
-    def generate():
-        temp_path = None
-        try:
-            # --- The new and correct fix ---
-            temp_path = os.path.join(UPLOAD_FOLDER, file.filename)
-            file.save(temp_path)
-            print(f"SERVER: Successfully saved uploaded file to {temp_path}")
-            # --- End of fix ---
+    # Read the file content into an in-memory buffer immediately.
+    # This is the critical fix to prevent the 'read of closed file' error.
+    try:
+        pdf_content = file.read()
+    except Exception as e:
+        print(f"SERVER FATAL ERROR during file read: {e}")
+        return jsonify({"error": "Failed to read the uploaded file. It might be corrupted."}), 500
 
+    def generate():
+        try:
             yield json.dumps({"status": "Extracting images from PDF..."}) + '\n'
-            all_images = pdf_to_base64_images(temp_path)
+            all_images = pdf_to_base64_images(pdf_content)
             
             if not all_images:
                 yield json.dumps({"error": "Failed to process PDF file. The file might be corrupted or empty."}) + '\n'
@@ -273,10 +276,6 @@ def analyze_pitch_deck():
             print(f"SERVER FATAL ERROR: {e}")
             traceback.print_exc()
             yield json.dumps({"error": "An unexpected server error occurred."}) + '\n'
-        finally:
-            if temp_path and os.path.exists(temp_path):
-                print(f"SERVER: Cleaning up temporary file: {temp_path}")
-                os.remove(temp_path)
     
     return Response(stream_with_context(generate()), mimetype='application/json')
 
