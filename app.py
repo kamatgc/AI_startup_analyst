@@ -22,6 +22,7 @@ UPLOAD_FOLDER = 'temp_uploads'
 # Ensure the upload folder exists
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(os.path.join(os.getcwd(), UPLOAD_FOLDER))
+    print(f"SERVER: Created upload folder at {UPLOAD_FOLDER}")
 
 # --- Helper Functions ---
 def pdf_to_base64_images(pdf_file_path):
@@ -34,7 +35,7 @@ def pdf_to_base64_images(pdf_file_path):
         num_pages = doc.page_count
         images = []
         
-        print("Server: Starting PDF conversion...")
+        print(f"SERVER: Starting PDF conversion for {num_pages} pages...")
         yield json.dumps({"status": f"Converting PDF to images (0/{num_pages} pages completed)..."}) + '\n'
         
         for page_num in range(num_pages):
@@ -43,16 +44,16 @@ def pdf_to_base64_images(pdf_file_path):
             image_buffer = pix.tobytes(output='jpeg')
             images.append(base64.b64encode(image_buffer).decode('utf-8'))
             
-            print(f"Server: Converted page {page_num + 1} of {num_pages}.")
+            print(f"SERVER: Converted page {page_num + 1} of {num_pages}.")
             yield json.dumps({"status": f"Converting PDF to images ({page_num + 1}/{num_pages} pages completed)..."}) + '\n'
             
         doc.close()
-        print("Server: PDF conversion complete.")
+        print("SERVER: PDF conversion complete.")
         yield json.dumps({"status": "PDF conversion complete."}) + '\n'
         
         return images
     except Exception as e:
-        print(f"Error converting PDF to images: {e}")
+        print(f"SERVER ERROR: Failed to convert PDF to images: {e}")
         traceback.print_exc()
         yield json.dumps({"error": "Failed to process PDF file during conversion."}) + '\n'
         return []
@@ -74,17 +75,20 @@ def call_gemini_api(prompt_text, images=None):
                 "contents": [{"parts": parts}]
             }
             
+            print(f"SERVER: Attempting API call (Retry {i+1}/{retries})...")
             response = requests.post(GEMINI_API_URL, json=payload, timeout=60)
             response.raise_for_status()
             
+            print("SERVER: API call successful.")
             return response.json()['candidates'][0]['content']['parts'][0]['text']
         except requests.exceptions.HTTPError as e:
-            print(f"HTTP Error: {e} - Retrying...")
+            print(f"SERVER ERROR: HTTP Error: {e} - Retrying...")
             time.sleep(2 ** i)
         except Exception as e:
-            print(f"An error occurred during API call: {e} - Retrying...")
+            print(f"SERVER ERROR: An error occurred during API call: {e} - Retrying...")
             traceback.print_exc()
             time.sleep(2 ** i)
+    print(f"SERVER ERROR: Failed to get a successful response after {retries} retries.")
     raise Exception(f"Failed to get a successful response after {retries} retries.")
 
 def generate_memo_chunk(images, chunk_number):
@@ -104,6 +108,7 @@ def generate_memo_chunk(images, chunk_number):
     
     Format the summary as concise, easy-to-read text.
     """
+    print(f"SERVER: Generating memo for chunk {chunk_number}...")
     return call_gemini_api(chunk_prompt, images=images)
 
 def synthesize_final_memo(summaries):
@@ -199,79 +204,87 @@ def synthesize_final_memo(summaries):
     
     {full_text}
     """
-    
+    print("SERVER: Synthesizing final investment memo...")
     return call_gemini_api(synthesis_prompt)
 
 # --- Routes ---
 @app.route('/')
 def serve_index():
     """Serve the index.html file from the same directory."""
-    print("Server: Serving index.html")
+    print("SERVER: Request received for root URL '/'. Serving index.html...")
     return send_from_directory('.', 'index.html')
 
 @app.route('/ask', methods=['POST'])
 def ask_ai():
-    print("Server: Received POST request at /ask")
+    print("SERVER: Received POST request at /ask. Checking for file...")
     if 'pdf_file' not in request.files:
+        print("SERVER: Error - 'pdf_file' not in request. Aborting.")
         return jsonify({"error": "No file part"}), 400
 
     file = request.files['pdf_file']
     if file.filename == '':
+        print("SERVER: Error - No file selected. Aborting.")
         return jsonify({"error": "No selected file"}), 400
 
-    if file:
-        temp_path = os.path.join(UPLOAD_FOLDER, file.filename)
-        file.save(temp_path)
-        
-        @stream_with_context
-        def generate():
+    print(f"SERVER: File '{file.filename}' received. Saving to temporary path...")
+    temp_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(temp_path)
+    print(f"SERVER: File saved to '{temp_path}'. Initiating analysis...")
+    
+    @stream_with_context
+    def generate():
+        try:
+            print("SERVER: Starting stream for analysis...")
+            image_updates_generator = pdf_to_base64_images(temp_path)
+            
+            all_images = []
+            for update in image_updates_generator:
+                yield update
+            
+            # The generator returns the full list of images after yielding all updates
             try:
-                print("Server: File received. Initiating PDF processing...")
-                image_updates_generator = pdf_to_base64_images(temp_path)
-                
-                all_images = []
-                for update in image_updates_generator:
-                    yield update
-                
-                # The generator returns the full list of images after yielding all updates
-                try:
-                    all_images = next(image_updates_generator)
-                except StopIteration:
-                    pass
+                all_images = next(image_updates_generator)
+            except StopIteration:
+                pass
 
-                if not all_images:
-                    yield json.dumps({"error": "Failed to process PDF file."}) + '\n'
-                    return
+            if not all_images:
+                print("SERVER: Error - No images processed from PDF. Aborting.")
+                yield json.dumps({"error": "Failed to process PDF file."}) + '\n'
+                return
 
-                chunk_summaries = []
-                num_chunks = (len(all_images) + CHUNK_SIZE - 1) // CHUNK_SIZE
-                
-                for i in range(num_chunks):
-                    start_index = i * CHUNK_SIZE
-                    end_index = min(start_index + CHUNK_SIZE, len(all_images))
-                    chunk_images = all_images[start_index:end_index]
-                    
-                    yield json.dumps({"status": f"Analyzing chunk {i + 1} of {num_chunks}..."}) + '\n'
-                    print(f"Server: Analyzing chunk {i + 1} of {num_chunks}...")
-                    chunk_summary = generate_memo_chunk(chunk_images, i + 1)
-                    chunk_summaries.append(chunk_summary)
+            chunk_summaries = []
+            num_chunks = (len(all_images) + CHUNK_SIZE - 1) // CHUNK_SIZE
+            print(f"SERVER: PDF has {len(all_images)} pages. Will analyze in {num_chunks} chunks.")
 
-                yield json.dumps({"status": "Synthesizing final investment memo..."}) + '\n'
-                print("Server: Synthesizing final investment memo...")
-                final_memo = synthesize_final_memo(chunk_summaries)
+            for i in range(num_chunks):
+                start_index = i * CHUNK_SIZE
+                end_index = min(start_index + CHUNK_SIZE, len(all_images))
+                chunk_images = all_images[start_index:end_index]
                 
-                yield json.dumps({"status": "Analysis complete.", "memo": final_memo}) + '\n'
-                
-            except Exception as e:
-                print(f"FATAL ERROR: {e}")
-                traceback.print_exc()
-                yield json.dumps({"error": "An unexpected server error occurred."}) + '\n'
-            finally:
-                if temp_path and os.path.exists(temp_path):
-                    print(f"Server: Cleaning up temporary file: {temp_path}")
-                    os.remove(temp_path)
+                print(f"SERVER: Analyzing chunk {i + 1} of {num_chunks} (pages {start_index + 1} to {end_index})...")
+                yield json.dumps({"status": f"Analyzing chunk {i + 1} of {num_chunks}..."}) + '\n'
+                chunk_summary = generate_memo_chunk(chunk_images, i + 1)
+                chunk_summaries.append(chunk_summary)
+                print(f"SERVER: Chunk {i + 1} analysis complete.")
+
+            print("SERVER: All chunks analyzed. Now synthesizing final memo...")
+            yield json.dumps({"status": "Synthesizing final investment memo..."}) + '\n'
+            final_memo = synthesize_final_memo(chunk_summaries)
+            
+            print("SERVER: Final memo synthesis complete. Sending response.")
+            yield json.dumps({"status": "Analysis complete.", "memo": final_memo}) + '\n'
+            
+        except Exception as e:
+            print(f"SERVER FATAL ERROR: {e}")
+            traceback.print_exc()
+            yield json.dumps({"error": "An unexpected server error occurred."}) + '\n'
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                print(f"SERVER: Cleaning up temporary file: {temp_path}")
+                os.remove(temp_path)
     
     return Response(stream_with_context(generate()), mimetype='application/json')
 
 if __name__ == '__main__':
+    print("SERVER: Starting Flask application...")
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
