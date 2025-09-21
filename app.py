@@ -51,13 +51,12 @@ def pdf_to_base64_images(pdf_file_path):
         print("Server: PDF conversion complete.")
         yield json.dumps({"status": "PDF conversion complete."}) + '\n'
         
+        return images
     except Exception as e:
         print(f"Error converting PDF to images: {e}")
         traceback.print_exc()
         yield json.dumps({"error": "Failed to process PDF file during conversion."}) + '\n'
-        images = []
-    
-    return images
+        return []
 
 def call_gemini_api(prompt_text, images=None):
     """
@@ -204,10 +203,6 @@ def synthesize_final_memo(summaries):
     return call_gemini_api(synthesis_prompt)
 
 # --- Routes ---
-@app.route('/')
-def serve_index():
-    return app.send_static_file('index.html')
-
 @app.route('/ask', methods=['POST'])
 def ask_ai():
     if 'pdf_file' not in request.files:
@@ -224,15 +219,18 @@ def ask_ai():
         @stream_with_context
         def generate():
             try:
-                # NEW: Call the new generator function for conversion to stream updates
+                # First, get the generator for streaming updates during conversion
                 print("Server: File received. Initiating PDF processing...")
-                for status_update in pdf_to_base64_images(temp_path):
-                    yield status_update
+                image_updates_generator = pdf_to_base64_images(temp_path)
                 
-                # Retrieve the images after the generator is done
-                all_images_generator = pdf_to_base64_images(temp_path)
-                all_images = list(next(all_images_generator) for _ in range(0, len(os.listdir(UPLOAD_FOLDER))))
-
+                # Stream the conversion status updates
+                all_images = []
+                for update in image_updates_generator:
+                    yield update
+                    
+                # The generator returns the full list of images after yielding all updates
+                all_images = next(image_updates_generator, [])
+                
                 if not all_images:
                     yield json.dumps({"error": "Failed to process PDF file."}) + '\n'
                     return
