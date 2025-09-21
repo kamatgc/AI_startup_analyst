@@ -113,13 +113,8 @@ def handle_ask():
     if file.filename == '':
         print("Error: No selected file.")
         return jsonify({"error": "No selected file"}), 400
-    
-    # Check if the file has content
-    if file.content_length == 0:
-        print("Error: Empty file uploaded.")
-        return jsonify({"error": "Empty file uploaded"}), 400
 
-    print(f"Received file: {file.filename}, Content-Length: {file.content_length}")
+    print(f"Received file: {file.filename}")
     
     try:
         # Create a BytesIO object from the file data
@@ -134,8 +129,8 @@ def handle_ask():
             investment_memo = analyze_pitch_deck(text_content)
             return jsonify({"response": investment_memo})
         else:
-            print("Failed to extract text from PDF.")
-            return jsonify({"error": "Failed to extract text from PDF."}), 500
+            print("Failed to extract text from PDF. The file may be empty or unreadable.")
+            return jsonify({"error": "Failed to extract text from PDF. The file may be empty or unreadable."}), 500
 
     except Exception as e:
         print(f"An error occurred: {e}")
