@@ -130,8 +130,9 @@ def synthesize_final_memo(chunk_summaries):
     Synthesizes the individual chunk summaries into a single, cohesive final investment memo.
     """
     print("SERVER: Synthesizing final memo...")
+    full_text = "\n\n".join(chunk_summaries)
     
-    prompt = f"""
+    synthesis_prompt = f"""    
 **Investment Memo Structure (MANDATORY):**
 
 The memo MUST follow this exact structure, using Markdown headings for each section.
@@ -209,7 +210,7 @@ The memo MUST follow this exact structure, using Markdown headings for each sect
  
 The summaries to be synthesized are below:
  
-{combined_text}
+{full_text}
 
 """
     
