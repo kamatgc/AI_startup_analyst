@@ -3,12 +3,11 @@ import os
 import fitz  # PyMuPDF
 import tempfile
 import shutil
-from google.generativeai import configure, GenerativeModel
-from markdown import markdown
+import requests
 
 app = Flask(__name__)
-configure(api_key=os.getenv("GOOGLE_API_KEY"))
-model = GenerativeModel("gemini-pro")
+API_KEY = os.getenv("GOOGLE_API_KEY")
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={API_KEY}"
 
 def enrich_memo(memo_text):
     insights = []
@@ -47,7 +46,9 @@ def analyze():
 
     final_memo = ""
     for idx, chunk in enumerate(chunks):
-        prompt = f"""You are an expert VC analyst. Analyze the startup pitch deck images below and generate a structured investment memo. Include:
+        prompt = {
+            "parts": [
+                {"text": f"""You are an expert VC analyst. Analyze the startup pitch deck images below and generate a structured investment memo. Include:
 
 - Executive Summary
 - Overview (Startup Name, Domain, Demographic)
@@ -65,10 +66,21 @@ def analyze():
 - Confidence Score
 - Top 3 North Star Metrics
 
-Chunk {idx+1} of {len(chunks)}. Provide markdown output."""
-        images = [{"mime_type": "image/png", "data": open(img, "rb").read()} for img in chunk]
-        response = model.generate_content([prompt] + images)
-        final_memo += response.text + "\n\n"
+Chunk {idx+1} of {len(chunks)}. Provide markdown output."""}
+            ] + [
+                {
+                    "inline_data": {
+                        "mime_type": "image/png",
+                        "data": open(img, "rb").read().decode("latin1")
+                    }
+                } for img in chunk
+            ]
+        }
+
+        headers = {"Content-Type": "application/json"}
+        response = requests.post(GEMINI_API_URL, json=prompt, headers=headers)
+        result = response.json()
+        final_memo += result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "") + "\n\n"
 
     final_memo = enrich_memo(final_memo)
     shutil.rmtree(temp_dir)
