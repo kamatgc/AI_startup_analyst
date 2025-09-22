@@ -1,242 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Pitch Deck Analyzer</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
-        }
-        .container {
-            max-width: 900px;
-            margin: auto;
-            padding: 2rem;
-        }
-        .card {
-            background-color: white;
-            border-radius: 1.5rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-        .btn-primary {
-            background-color: #4f46e5;
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.75rem;
-            font-weight: 600;
-            transition: background-color 0.3s ease;
-            cursor: pointer;
-        }
-        .btn-primary:hover {
-            background-color: #4338ca;
-        }
-        .btn-primary:disabled {
-            background-color: #a5b4fc;
-            cursor: not-allowed;
-        }
-        .markdown-content {
-            white-space: pre-wrap;
-            overflow-x: auto;
-        }
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border-left-color: #4f46e5;
-            animation: spin 1s ease infinite;
-        }
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-    </style>
-</head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-    <div class="container p-4">
-        <!-- Main Application Card -->
-        <div class="card p-8 md:p-12">
-            <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">AI Pitch Deck Analyzer</h1>
-            
-            <!-- Upload Section -->
-            <div id="upload-section" class="flex flex-col items-center text-center">
-                <p class="text-gray-500 mb-6">Upload a pitch deck (PDF) and let our AI analyze it for you.</p>
-                <input type="file" id="file-input" accept="application/pdf" class="hidden" />
-                <label for="file-input" class="w-full md:w-2/3 p-6 mb-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-400 transition-colors duration-200">
-                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4v0a4 4 0 014-4h4m4 4v0a4 4 0 004-4v-4m-4 4a4 4 0 01-4 4H7m4-4H7m4 0a4 4 0 004-4V7m-4 4v0a4 4 0 01-4-4V7" />
-                    </svg>
-                    <p class="mt-2 text-sm text-gray-600"><span class="font-medium text-indigo-600 hover:text-indigo-500">Click to upload</span> or drag and drop</p>
-                    <p class="text-xs text-gray-500 mt-1">PDF file (max 25MB)</p>
-                </label>
-                <span id="file-name" class="text-sm text-gray-500 mb-4">No file selected</span>
-                <button id="submit-btn" class="btn-primary flex items-center justify-center space-x-2">
-                    <svg id="arrow-right-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                    </svg>
-                    <span id="btn-text">Analyze Pitch Deck</span>
-                </button>
-            </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Startup Analyst</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  </head>
+  <body class="bg-gray-100">
+    <div class="max-w-3xl mx-auto mt-10 p-6 bg-white rounded shadow">
+      <h1 class="text-2xl font-bold mb-2">AI Startup Analyst</h1>
+      <p class="mb-4 text-gray-600">Upload a pitch deck PDF to generate a comprehensive investment memo.</p>
 
-            <!-- Loading Section -->
-            <div id="loading-section" class="hidden flex flex-col items-center text-center p-8">
-                <div class="spinner mb-4"></div>
-                <p id="status-message" class="text-gray-600 font-medium text-lg">Initializing...</p>
-                <p class="text-sm text-gray-400 mt-2">This may take a few moments...</p>
-            </div>
+      <input type="file" id="fileInput" accept=".pdf" class="mb-4" />
+      <button id="analyzeBtn" class="bg-blue-600 text-white px-4 py-2 rounded">Analyze Pitch Deck</button>
 
-            <!-- Memo Section -->
-            <div id="memo-section" class="hidden">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-semibold text-gray-700">Investment Memo</h2>
-                    <button id="back-btn" class="text-sm font-medium text-indigo-600 hover:underline">
-                        &larr; Analyze Another
-                    </button>
-                </div>
-                <div id="memo-output" class="markdown-content p-6 border rounded-lg bg-gray-50 overflow-y-auto max-h-[70vh]">
-                    <!-- Markdown content will be rendered here -->
-                </div>
-            </div>
+      <div id="status" class="mt-4 text-sm text-gray-500"></div>
+      <div id="memoContainer" class="mt-6 whitespace-pre-wrap text-sm leading-relaxed"></div>
 
-            <!-- Error Section -->
-            <div id="error-section" class="hidden bg-red-100 border border-red-400 text-red-700 p-4 rounded-lg mt-6" role="alert">
-                <strong class="font-bold">Error!</strong>
-                <span class="block sm:inline mt-1 sm:mt-0"><p></p></span>
-            </div>
-        </div>
+      <div class="mt-6 flex justify-between items-center">
+        <button id="downloadBtn" class="bg-green-600 text-white px-4 py-2 rounded">Download PDF</button>
+        <select id="memoHistory" class="border px-2 py-1 rounded text-sm"></select>
+      </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // DOM Elements
-            const fileInput = document.getElementById('file-input');
-            const submitBtn = document.getElementById('submit-btn');
-            const fileNameSpan = document.getElementById('file-name');
-            const uploadSection = document.getElementById('upload-section');
-            const loadingSection = document.getElementById('loading-section');
-            const statusMessage = document.getElementById('status-message');
-            const btnText = document.getElementById('btn-text');
-            const memoSection = document.getElementById('memo-section');
-            const memoOutput = document.getElementById('memo-output');
-            const errorSection = document.getElementById('error-section');
-            const backBtn = document.getElementById('back-btn');
-
-            let selectedFile = null;
-
-            // Event Listeners
-            fileInput.addEventListener('change', (event) => {
-                selectedFile = event.target.files[0];
-                if (selectedFile) {
-                    fileNameSpan.textContent = selectedFile.name;
-                    submitBtn.disabled = false;
-                } else {
-                    fileNameSpan.textContent = 'No file selected';
-                    submitBtn.disabled = true;
-                }
-            });
-
-            submitBtn.addEventListener('click', async () => {
-                if (!selectedFile) {
-                    displayError("Please select a pitch deck (PDF) to analyze.");
-                    return;
-                }
-                
-                showLoading("Uploading file...");
-
-                const formData = new FormData();
-                formData.append('file', selectedFile);
-
-                try {
-                    const response = await fetch('/analyze', {
-                        method: 'POST',
-                        body: formData // Correctly sends the file
-                    });
-
-                    if (!response.body) {
-                        displayError("The server response could not be read.");
-                        return;
-                    }
-                    
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-                    let responseData = '';
-
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        const chunk = decoder.decode(value, { stream: true });
-                        responseData += chunk;
-                        
-                        try {
-                            const lines = responseData.split('\n');
-                            responseData = lines.pop(); // Keep incomplete last line
-                            for (const line of lines) {
-                                if (line.trim() === '') continue;
-                                const data = JSON.parse(line);
-                                if (data.status) {
-                                    showLoading(data.status);
-                                }
-                                if (data.memo) {
-                                    displayMemo(data.memo);
-                                }
-                                if (data.error) {
-                                    displayError(data.error);
-                                }
-                            }
-                        } catch (e) {
-                            // JSON parsing error, the chunk might be incomplete. Wait for the next one.
-                            console.error("JSON parsing error:", e);
-                        }
-                    }
-                } catch (e) {
-                    console.error("Fetch error:", e);
-                    displayError("Network or server error. Please try again.");
-                }
-            });
-
-            backBtn.addEventListener('click', () => {
-                memoSection.classList.add('hidden');
-                uploadSection.classList.remove('hidden');
-                memoOutput.innerHTML = '';
-            });
-
-            function showLoading(message) {
-                uploadSection.classList.add('hidden');
-                memoSection.classList.add('hidden');
-                errorSection.classList.add('hidden');
-                loadingSection.classList.remove('hidden');
-                statusMessage.textContent = message;
-                btnText.textContent = 'Analyzing...';
-                submitBtn.disabled = true;
-            }
-
-            function displayMemo(memoText) {
-                loadingSection.classList.add('hidden');
-                uploadSection.classList.add('hidden');
-                memoSection.classList.remove('hidden');
-                memoOutput.innerHTML = marked.parse(memoText);
-                btnText.textContent = 'Analyze Pitch Deck';
-                submitBtn.disabled = false;
-            }
-
-            function displayError(message) {
-                loadingSection.classList.add('hidden');
-                uploadSection.classList.remove('hidden');
-                errorSection.classList.remove('hidden');
-                errorSection.querySelector('p').textContent = message;
-                btnText.textContent = 'Analyze Pitch Deck';
-                submitBtn.disabled = false;
-            }
-        });
-    </script>
-</body>
+    <script src="script.js"></script>
+  </body>
 </html>
+
