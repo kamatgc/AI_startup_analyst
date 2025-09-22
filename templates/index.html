@@ -19,12 +19,12 @@
       <div id="memoContainer" class="mt-6 whitespace-pre-wrap text-sm leading-relaxed"></div>
 
       <div class="mt-6 flex justify-between items-center">
-        <button id="downloadBtn" class="bg-green-600 text-white px-4 py-2 rounded">Download PDF</button>
+        <button id="downloadBtn" class="bg-green-600 text-white px-4 py-2 rounded" disabled>Download PDF</button>
         <select id="memoHistory" class="border px-2 py-1 rounded text-sm"></select>
       </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
   </body>
 </html>
 
