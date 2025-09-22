@@ -1,5 +1,7 @@
+markdown
 Flask
 Flask-Cors
 requests
 PyMuPDF
 gunicorn
+google-generativeai

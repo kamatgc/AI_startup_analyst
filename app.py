@@ -3,9 +3,8 @@ import os
 import fitz  # PyMuPDF
 import tempfile
 import shutil
-import time
-from markdown import markdown
 from google.generativeai import configure, GenerativeModel
+from markdown import markdown
 
 app = Flask(__name__)
 configure(api_key=os.getenv("GOOGLE_API_KEY"))
