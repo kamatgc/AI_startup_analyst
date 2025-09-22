@@ -92,9 +92,10 @@ Chunk {idx+1} of {len(chunks)}. Provide markdown output."""
         headers = { "Content-Type": "application/json" }
         response = requests.post(GEMINI_API_URL, json=payload, headers=headers)
         result = response.json()
+        print("🔍 Gemini raw response:\n", result)  # Optional debug log
 
         try:
-            chunk_text = result["candidates"][0]["content"]["parts"][0]["text"]
+            chunk_text = result["contents"][0]["parts"][0]["text"]
         except Exception as e:
             chunk_text = f"⚠️ Error parsing Gemini response: {e}"
 
