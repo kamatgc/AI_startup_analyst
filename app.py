@@ -4,6 +4,7 @@ import fitz  # PyMuPDF
 import tempfile
 import shutil
 import requests
+import base64
 
 app = Flask(__name__)
 API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -11,12 +12,19 @@ GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemin
 
 def enrich_memo(memo_text):
     insights = []
-    if "CAC" in memo_text and "LTV" in memo_text:
+    lower_text = memo_text.lower()
+
+    if "cac" in lower_text and "ltv" in lower_text:
         insights.append("✅ CAC to LTV ratio appears healthy.")
-    if "TAM" in memo_text and "early" in memo_text:
+
+    if "tam" in lower_text and "early" in lower_text:
         insights.append("⚠️ TAM is early-stage. Consider market maturity.")
-    if "exit" not in memo_text.lower():
+
+    exit_keywords = ["exit", "ipo", "m&a", "acquisition", "return projections"]
+    if not any(keyword in lower_text for keyword in exit_keywords):
         insights.append("⚠️ No clear exit strategy mentioned.")
+
+    print("🔍 Final memo text:\n", memo_text)  # Optional debug log
     return memo_text + "\n\n🔍 Insights:\n" + "\n".join(insights)
 
 @app.route("/")
@@ -46,9 +54,9 @@ def analyze():
 
     final_memo = ""
     for idx, chunk in enumerate(chunks):
-        prompt = {
-            "parts": [
-                {"text": f"""You are an expert VC analyst. Analyze the startup pitch deck images below and generate a structured investment memo. Include:
+        parts = [
+            {
+                "text": f"""You are an expert VC analyst. Analyze the startup pitch deck images below and generate a structured investment memo. Include:
 
 - Executive Summary
 - Overview (Startup Name, Domain, Demographic)
@@ -66,26 +74,36 @@ def analyze():
 - Confidence Score
 - Top 3 North Star Metrics
 
-Chunk {idx+1} of {len(chunks)}. Provide markdown output."""}
-            ] + [
-                {
+Chunk {idx+1} of {len(chunks)}. Provide markdown output."""
+            }
+        ]
+
+        for img_path in chunk:
+            with open(img_path, "rb") as f:
+                encoded = base64.b64encode(f.read()).decode("utf-8")
+                parts.append({
                     "inline_data": {
                         "mime_type": "image/png",
-                        "data": open(img, "rb").read().decode("latin1")
+                        "data": encoded
                     }
-                } for img in chunk
-            ]
-        }
+                })
 
-        headers = {"Content-Type": "application/json"}
-        response = requests.post(GEMINI_API_URL, json=prompt, headers=headers)
+        payload = { "contents": [ { "parts": parts } ] }
+        headers = { "Content-Type": "application/json" }
+        response = requests.post(GEMINI_API_URL, json=payload, headers=headers)
         result = response.json()
-        final_memo += result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "") + "\n\n"
+
+        try:
+            chunk_text = result["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception as e:
+            chunk_text = f"⚠️ Error parsing Gemini response: {e}"
+
+        final_memo += chunk_text + "\n\n"
 
     final_memo = enrich_memo(final_memo)
     shutil.rmtree(temp_dir)
 
-    return jsonify({"memo": final_memo})
+    return jsonify({ "memo": final_memo })
 
 if __name__ == "__main__":
     app.run(debug=True)
