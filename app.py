@@ -132,7 +132,7 @@ def synthesize_final_memo(chunk_summaries):
     print("SERVER: Synthesizing final memo...")
     full_text = "\n\n".join(chunk_summaries)
     
-    synthesis_prompt = f"""    
+    prompt = f"""    
 **Investment Memo Structure (MANDATORY):**
 
 The memo MUST follow this exact structure, using Markdown headings for each section.
