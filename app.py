@@ -8,7 +8,8 @@ import base64
 
 app = Flask(__name__)
 API_KEY = os.getenv("GOOGLE_API_KEY")
-GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key={API_KEY}"
+GEMINI_MODEL = "gemini-2.5-flash-preview-05-20"
+GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={API_KEY}"
 
 def enrich_memo(memo_text):
     insights = []
@@ -16,15 +17,13 @@ def enrich_memo(memo_text):
 
     if "cac" in lower_text and "ltv" in lower_text:
         insights.append("✅ CAC to LTV ratio appears healthy.")
-
     if "tam" in lower_text and "early" in lower_text:
         insights.append("⚠️ TAM is early-stage. Consider market maturity.")
-
     exit_keywords = ["exit", "ipo", "m&a", "acquisition", "return projections"]
     if not any(keyword in lower_text for keyword in exit_keywords):
         insights.append("⚠️ No clear exit strategy mentioned.")
 
-    print("🔍 Final memo text:\n", memo_text)  # Optional debug log
+    print("🔍 Final memo text:\n", memo_text)
     return memo_text + "\n\n🔍 Insights:\n" + "\n".join(insights)
 
 @app.route("/")
@@ -92,7 +91,7 @@ Chunk {idx+1} of {len(chunks)}. Provide markdown output."""
         headers = { "Content-Type": "application/json" }
         response = requests.post(GEMINI_API_URL, json=payload, headers=headers)
         result = response.json()
-        print("🔍 Gemini raw response:\n", result)  # Optional debug log
+        print(f"🔍 Gemini raw response (chunk {idx+1}):\n", result)
 
         try:
             chunk_text = result["contents"][0]["parts"][0]["text"]
