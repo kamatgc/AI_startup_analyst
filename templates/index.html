@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Startup Analyst</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  </head>
+  <body class="bg-gray-100">
+    <div class="max-w-3xl mx-auto mt-10 p-6 bg-white rounded shadow">
+      <h1 class="text-2xl font-bold mb-2">AI Startup Analyst</h1>
+      <p class="mb-4 text-gray-600">Upload a pitch deck PDF to generate a comprehensive investment memo.</p>
+
+      <input type="file" id="fileInput" accept=".pdf" class="mb-4" />
+      <button id="analyzeBtn" class="bg-blue-600 text-white px-4 py-2 rounded">Analyze Pitch Deck</button>
+
+      <div id="status" class="mt-4 text-sm text-gray-500"></div>
+      <div id="memoContainer" class="mt-6 whitespace-pre-wrap text-sm leading-relaxed"></div>
+
+      <div class="mt-6 flex justify-between items-center">
+        <button id="downloadBtn" class="bg-green-600 text-white px-4 py-2 rounded">Download PDF</button>
+        <select id="memoHistory" class="border px-2 py-1 rounded text-sm"></select>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
+
