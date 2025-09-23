@@ -7,14 +7,7 @@ import requests
 import base64
 
 app = Flask(__name__)
-#API_KEY = os.getenv("GOOGLE_API_KEY")
 API_KEY = "AIzaSyAcPLSUgM9ZarS3D0CW0DmCzPLySBenQeU"
-# Add this line for debugging to confirm the key is loaded
-if API_KEY:
-    print("SERVER: Successfully loaded hardcoded API key.")
-else:
-    print("SERVER ERROR: Hardcoded API key is missing.")
-
 GEMINI_MODEL = "gemini-2.5-flash-preview-05-20"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={API_KEY}"
 
@@ -101,7 +94,7 @@ Chunk {idx+1} of {len(chunks)}. Provide markdown output."""
         print(f"🔍 Gemini raw response (chunk {idx+1}):\n", result)
 
         try:
-            chunk_text = result["contents"][0]["parts"][0]["text"]
+            chunk_text = result["candidates"][0]["content"]["parts"][0]["text"]
         except Exception as e:
             chunk_text = f"⚠️ Error parsing Gemini response: {e}"
 
