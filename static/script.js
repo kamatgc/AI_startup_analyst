@@ -21,8 +21,9 @@ document.getElementById("analyzeBtn").onclick = async () => {
     // Add spacing before Markdown headings
     memo = memo.replace(/(\n#+ .+)/g, "\n\n$1");
 
-    // Render Markdown to HTML
-    document.getElementById("memo-output").innerHTML = marked.parse(memo);
+    // Render Markdown to HTML inside a dedicated container
+    const container = document.getElementById("memo-output");
+    container.innerHTML = `<div id="pdf-container">${marked.parse(memo)}</div>`;
     document.getElementById("status").innerText = "Done.";
     document.getElementById("downloadBtn").disabled = false;
   } catch (error) {
@@ -32,7 +33,15 @@ document.getElementById("analyzeBtn").onclick = async () => {
 };
 
 document.getElementById("downloadBtn").onclick = () => {
-  const element = document.getElementById("memo-output");
+  const pdfElement = document.getElementById("pdf-container");
+  if (!pdfElement) {
+    alert("PDF content not ready.");
+    return;
+  }
+
+  // Scroll into view to ensure visibility
+  pdfElement.scrollIntoView({ behavior: "instant", block: "center" });
+
   const opt = {
     margin: 0.5,
     filename: "investment_memo.pdf",
@@ -40,9 +49,9 @@ document.getElementById("downloadBtn").onclick = () => {
     jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
   };
 
-  // Delay to ensure DOM is fully rendered before snapshot
+  // Delay to ensure DOM is fully painted
   setTimeout(() => {
-    html2pdf().set(opt).from(element).save();
-  }, 600);
+    html2pdf().set(opt).from(pdfElement).save();
+  }, 800);
 };
 
