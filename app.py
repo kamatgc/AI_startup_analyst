@@ -71,8 +71,8 @@ The memo MUST follow this exact structure:
         response = requests.post(GEMINI_API_URL, json=payload, headers=headers, timeout=60)
         result = response.json()
         return result["candidates"][0]["content"]["parts"][0]["text"]
-    except requests.exceptions.Timeout:
-        return "⚠️ Gemini API timed out while synthesizing final memo. Try reducing deck size."
+    except ValueError:
+        return "⚠️ Gemini API returned invalid response. Please check prompt or try again."
     except Exception as e:
         return f"⚠️ Error synthesizing final memo: {e}"
 
@@ -111,8 +111,8 @@ def analyze():
             response = requests.post(GEMINI_API_URL, json=payload, headers=headers, timeout=60)
             result = response.json()
             chunk_text = result["candidates"][0]["content"]["parts"][0]["text"]
-        except requests.exceptions.Timeout:
-            chunk_text = f"⚠️ Gemini API timed out for chunk {idx+1}. Try reducing deck size."
+        except ValueError:
+            chunk_text = f"⚠️ Gemini API returned invalid response for chunk {idx+1}."
         except Exception as e:
             chunk_text = f"⚠️ Error parsing chunk {idx+1}: {e}"
         chunk_summaries.append(chunk_text.strip())
