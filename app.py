@@ -7,7 +7,8 @@ import requests
 import base64
 
 app = Flask(__name__)
-API_KEY = os.getenv("GOOGLE_API_KEY")
+#API_KEY = os.getenv("GOOGLE_API_KEY")
+API_KEY = "AIzaSyAcPLSUgM9ZarS3D0CW0DmCzPLySBenQeU"
 # Add this line for debugging to confirm the key is loaded
 if API_KEY:
     print("SERVER: Successfully loaded API key from environment variable.")
