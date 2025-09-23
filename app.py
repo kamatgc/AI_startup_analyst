@@ -23,8 +23,7 @@ def enrich_memo(memo_text):
     if not any(keyword in lower_text for keyword in exit_keywords):
         insights.append("⚠️ No clear exit strategy mentioned.")
 
-    print("🔍 Final memo text:\n", memo_text)
-    return memo_text + "\n\n🔍 Insights:\n" + "\n".join(insights)
+    return memo_text.strip() + "\n\n🔍 Insights:\n" + "\n".join(insights)
 
 @app.route("/")
 def index():
@@ -91,14 +90,13 @@ Chunk {idx+1} of {len(chunks)}. Provide markdown output."""
         headers = { "Content-Type": "application/json" }
         response = requests.post(GEMINI_API_URL, json=payload, headers=headers)
         result = response.json()
-        print(f"🔍 Gemini raw response (chunk {idx+1}):\n", result)
 
         try:
             chunk_text = result["candidates"][0]["content"]["parts"][0]["text"]
         except Exception as e:
             chunk_text = f"⚠️ Error parsing Gemini response: {e}"
 
-        final_memo += chunk_text + "\n\n"
+        final_memo += chunk_text.strip() + "\n\n"
 
     final_memo = enrich_memo(final_memo)
     shutil.rmtree(temp_dir)
