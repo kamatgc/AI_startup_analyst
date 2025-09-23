@@ -68,13 +68,15 @@ The memo MUST follow this exact structure:
     payload = { "contents": [ { "parts": [ { "text": prompt } ] } ] }
     headers = { "Content-Type": "application/json" }
     try:
-        response = requests.post(GEMINI_API_URL, json=payload, headers=headers, timeout=60)
+        response = requests.post(GEMINI_API_URL, json=payload, headers=headers, timeout=120)
         result = response.json()
         return result["candidates"][0]["content"]["parts"][0]["text"]
-    except ValueError:
-        return "⚠️ Gemini API returned invalid response. Please check prompt or try again."
+    except requests.exceptions.Timeout:
+        return "⚠️ Gemini API timed out. Try reducing deck size or retrying later."
     except requests.exceptions.RequestException as e:
         return f"⚠️ Gemini API request failed: {e}"
+    except ValueError:
+        return "⚠️ Gemini API returned invalid response. Please check prompt or try again."
     except Exception as e:
         return f"⚠️ Error synthesizing final memo: {e}"
 
@@ -110,13 +112,15 @@ def analyze():
         payload = { "contents": [ { "parts": parts } ] }
         headers = { "Content-Type": "application/json" }
         try:
-            response = requests.post(GEMINI_API_URL, json=payload, headers=headers, timeout=60)
+            response = requests.post(GEMINI_API_URL, json=payload, headers=headers, timeout=120)
             result = response.json()
             chunk_text = result["candidates"][0]["content"]["parts"][0]["text"]
-        except ValueError:
-            chunk_text = f"⚠️ Gemini API returned invalid response for chunk {idx+1}."
+        except requests.exceptions.Timeout:
+            chunk_text = f"⚠️ Gemini API timed out for chunk {idx+1}. Try reducing deck size."
         except requests.exceptions.RequestException as e:
             chunk_text = f"⚠️ Gemini API request failed for chunk {idx+1}: {e}"
+        except ValueError:
+            chunk_text = f"⚠️ Gemini API returned invalid response for chunk {idx+1}."
         except Exception as e:
             chunk_text = f"⚠️ Error parsing chunk {idx+1}: {e}"
         chunk_summaries.append(chunk_text.strip())
