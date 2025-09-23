@@ -40,4 +40,9 @@ document.getElementById("downloadBtn").onclick = () => {
     jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
   };
 
+  // Delay to ensure DOM is fully rendered before snapshot
+  setTimeout(() => {
+    html2pdf().set(opt).from(element).save();
+  }, 300);
+};
 
