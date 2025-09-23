@@ -95,7 +95,7 @@ The memo MUST follow this exact structure:
 
 @app.route("/")
 def index():
-    return render_template("index-v5.html")
+    return render_template("index.html")
 
 @app.route("/analyze", methods=["POST"])
 def analyze():

@@ -18,10 +18,10 @@ document.getElementById("analyzeBtn").onclick = async () => {
     const data = await res.json();
     let memo = data.memo || "⚠️ No memo generated.";
 
-    // Add spacing between headings
+    // Add spacing before Markdown headings
     memo = memo.replace(/(\n#+ .+)/g, "\n\n$1");
 
-    // Render markdown
+    // Render Markdown to HTML
     document.getElementById("memo-output").innerHTML = marked.parse(memo);
     document.getElementById("status").innerText = "Done.";
     document.getElementById("downloadBtn").disabled = false;
@@ -40,7 +40,7 @@ document.getElementById("downloadBtn").onclick = () => {
     jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
   };
 
-  // Delay to ensure DOM is fully rendered
+  // Delay to ensure DOM is fully rendered before snapshot
   setTimeout(() => {
     html2pdf().set(opt).from(element).save();
   }, 300);
