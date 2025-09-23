@@ -16,11 +16,13 @@ def synthesize_final_memo(chunk_summaries):
     prompt = f"""
 You are a professional VC analyst. Based on the summaries below, generate a single, clean investment memo using the exact structure and formatting provided. Do not add extra sections or repeat content. Use Markdown headings and spacing between sections.
 
-Inject actual values for North Star Metrics based on pitch deck data. Format the VC Scorecard table with Markdown borders. Show Confidence Score as a percentage (0–100%) and apply the following decision guide:
+Inject actual values for North Star Metrics based on pitch deck data. Format the VC Scorecard table using HTML with borders. Show Confidence Score as a percentage (0–100%) and apply the following decision guide:
 
 - >= 70% → Strong Candidate (Go)
 - 51–69% → Conditional (monitor, more diligence)
 - < 50% → High Risk (No-Go)
+
+Ensure all section headings are bold and consistently formatted.
 
 {full_text}
 
@@ -76,19 +78,8 @@ The memo MUST follow this exact structure:
 **9. Final Recommendation:**
 - **Verdict:**
 - **Confidence Score:** (as a percentage)
-- **VC Scorecard Calculation:**
-  - | Category | Score (1–10) | Weightage (%) | Weighted Score | Notes |
-  - |---------|--------------|----------------|----------------|-------|
-  - | Team |  | 30 |  | |
-  - | Product |  | 15 |  | |
-  - | Market |  | 20 |  | |
-  - | Traction |  | 20 |  | |
-  - | Financials |  | 10 |  | |
-  - | M&A/Exit |  | 5 |  | |
-  - Total Score: __
-
-- **Top 3 North Star Metrics:**
-- Include actual values extracted from the pitch deck (e.g., ARR, ACV, CAC, LTV, Time-to-Insight).
+- **VC Scorecard Calculation:** (use HTML table with borders)
+- **Top 3 North Star Metrics:** (include actual values)
 - **Rationale:**
 """
     payload = { "contents": [ { "parts": [ { "text": prompt } ] } ] }

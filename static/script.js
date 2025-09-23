@@ -18,7 +18,7 @@ document.getElementById("analyzeBtn").onclick = async () => {
     const data = await res.json();
     let memo = data.memo || "⚠️ No memo generated.";
 
-    // Add spacing between sections
+    // Add spacing between headings
     memo = memo.replace(/(\n#+ .+)/g, "\n\n$1");
 
     // Render markdown
