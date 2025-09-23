@@ -16,8 +16,7 @@ document.getElementById("analyzeBtn").onclick = async () => {
   try {
     const res = await fetch("/analyze", { method: "POST", body: formData });
     const data = await res.json();
-
-    const memo = data.memo || "No memo generated.";
+    const memo = data.memo || "⚠️ No memo generated.";
     document.getElementById("memo-output").innerHTML = marked.parse(memo);
     document.getElementById("status").innerText = "Done.";
     document.getElementById("downloadBtn").disabled = false;
