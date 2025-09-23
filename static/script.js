@@ -21,8 +21,10 @@ document.getElementById("analyzeBtn").onclick = async () => {
     // Add spacing before Markdown headings
     memo = memo.replace(/(\n#+ .+)/g, "\n\n$1");
 
-    // Create a dedicated container for full memo capture
+    // Create and inject full memo into exportable container
     const container = document.getElementById("memo-output");
+    container.innerHTML = "";
+
     const pdfWrapper = document.createElement("div");
     pdfWrapper.id = "pdf-container";
     pdfWrapper.style.pageBreakInside = "avoid";
@@ -33,7 +35,6 @@ document.getElementById("analyzeBtn").onclick = async () => {
     pdfWrapper.style.whiteSpace = "pre-line";
 
     pdfWrapper.innerHTML = marked.parse(memo);
-    container.innerHTML = "";
     container.appendChild(pdfWrapper);
 
     document.getElementById("status").innerText = "Done.";
