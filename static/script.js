@@ -16,7 +16,12 @@ document.getElementById("analyzeBtn").onclick = async () => {
   try {
     const res = await fetch("/analyze", { method: "POST", body: formData });
     const data = await res.json();
-    const memo = data.memo || "⚠️ No memo generated.";
+    let memo = data.memo || "⚠️ No memo generated.";
+
+    // Ensure spacing between sections
+    memo = memo.replace(/(\n#+ .+)/g, "\n\n$1");
+
+    // Render markdown
     document.getElementById("memo-output").innerHTML = marked.parse(memo);
     document.getElementById("status").innerText = "Done.";
     document.getElementById("downloadBtn").disabled = false;
@@ -34,6 +39,10 @@ document.getElementById("downloadBtn").onclick = () => {
     html2canvas: { scale: 2, useCORS: true },
     jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
   };
-  html2pdf().set(opt).from(element).save();
+
+  // Delay to ensure DOM is fully rendered
+  setTimeout(() => {
+    html2pdf().set(opt).from(element).save();
+  }, 300);
 };
 
