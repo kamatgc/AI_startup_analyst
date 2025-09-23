@@ -8,6 +8,11 @@ import base64
 
 app = Flask(__name__)
 API_KEY = os.getenv("GOOGLE_API_KEY")
+# Add this line for debugging to confirm the key is loaded
+if API_KEY:
+    print("SERVER: Successfully loaded API key from environment variable.")
+else:
+    print("SERVER ERROR: API key not found in environment variables.")
 GEMINI_MODEL = "gemini-2.5-flash-preview-05-20"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={API_KEY}"
 
