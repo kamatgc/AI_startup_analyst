@@ -22,7 +22,63 @@ Inject actual values for North Star Metrics based on pitch deck data. Format the
 - 51–69% → Conditional (monitor, more diligence)
 - < 50% → High Risk (No-Go)
 
-Ensure all section headings are bold and consistently formatted.
+Ensure all section headings are bold and consistently formatted using Markdown ##.
+
+The memo MUST follow this exact structure:
+
+## 1. Executive Summary:
+- Provide a single, concise paragraph that summarizes the company's core business, key highlights, and investment potential.
+
+## 2. Company Overview:
+- **Startup Name:**
+- **Industry & Sector:**
+- **Domain:**
+- **Problem:**
+- **Solution:**
+
+## 3. The Founding Team:
+- **Background and Expertise:**
+- **Team Cohesion:**
+- **Previous Exits/Successes:**
+- **Intellectual Property:**
+
+## 4. Market Opportunity:
+- **Total Addressable Market (TAM):**
+- **Serviceable Addressable Market (SAM):**
+- **Competitive Landscape:**
+- **Market Growth Rate (CAGR):**
+
+## 5. Product & Technology:
+- **Product Stage:**
+- **Technical Barrier to Entry:**
+
+## 6. Traction & Commercials:
+- **Customer Metrics:**
+- **CAC:**
+- **LTV:**
+- **Revenue Model:**
+- **Revenue Run Rate:**
+- **Industry Recognition:**
+
+## 7. Financials & Projections:
+- **Historical Revenue:**
+- **Revenue Projections:**
+- **Burn Rate:**
+- **Runway:**
+- **Use of Funds:**
+
+## 8. Investment Terms & Exit Strategy:
+- **Round Details:**
+- **Pre-money Valuation:**
+- **Exit Scenarios:**
+- **Expected Returns:**
+
+## 9. Final Recommendation:
+- **Verdict:**
+- **Confidence Score:** (as a percentage)
+- **VC Scorecard Calculation:** (use HTML table with borders)
+- **Top 3 North Star Metrics:** (include actual values)
+- **Rationale:**
 
 {full_text}
 """
@@ -39,7 +95,7 @@ Ensure all section headings are bold and consistently formatted.
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index-v5.html")
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
@@ -56,7 +112,7 @@ def analyze():
         pix.save(image_path)
         image_paths.append(image_path)
 
-    chunk_size = 5  # Reduce to 3 if needed
+    chunk_size = 5
     chunks = [image_paths[i:i+chunk_size] for i in range(0, len(image_paths), chunk_size)]
     chunk_summaries = []
 
