@@ -13,7 +13,77 @@ GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMI
 
 def synthesize_final_memo(chunk_summaries):
     full_text = "\n\n".join(chunk_summaries)
-    prompt = f"""The memo MUST follow this exact structure... [truncated for brevity] ...The summaries to be synthesized are below:\n\n{full_text}"""
+    prompt = f"""
+You are a professional VC analyst. Based on the summaries below, generate a single, clean investment memo using the exact structure and formatting provided. Do not add extra sections or repeat content. Use Markdown headings and spacing between sections.
+
+{full_text}
+
+The memo MUST follow this exact structure:
+
+**1. Executive Summary:**
+- Provide a single, concise paragraph that summarizes the company's core business, key highlights, and investment potential.
+
+**2. Company Overview:**
+- **Startup Name:**
+- **Industry & Sector:**
+- **Domain:**
+- **Problem:**
+- **Solution:**
+
+**3. The Founding Team:**
+- **Background and Expertise:**
+- **Team Cohesion:**
+- **Previous Exits/Successes:**
+- **Intellectual Property:**
+
+**4. Market Opportunity:**
+- **Total Addressable Market (TAM):**
+- **Serviceable Addressable Market (SAM):**
+- **Competitive Landscape:**
+- **Market Growth Rate (CAGR):**
+
+**5. Product & Technology:**
+- **Product Stage:**
+- **Technical Barrier to Entry:**
+
+**6. Traction & Commercials:**
+- **Customer Metrics:**
+- **CAC:**
+- **LTV:**
+- **Revenue Model:**
+- **Revenue Run Rate:**
+- **Industry Recognition:**
+
+**7. Financials & Projections:**
+- **Historical Revenue:**
+- **Revenue Projections:**
+- **Burn Rate:**
+- **Runway:**
+- **Use of Funds:**
+
+**8. Investment Terms & Exit Strategy:**
+- **Round Details:**
+- **Pre-money Valuation:**
+- **Exit Scenarios:**
+- **Expected Returns:**
+
+**9. Final Recommendation:**
+- **Verdict:**
+- **Confidence Score:**
+- **VC Scorecard Calculation:**
+  - | Category | Score (1–10) | Weightage (%) | Weighted Score | Notes |
+  - |---------|--------------|----------------|----------------|-------|
+  - | Team |  | 30 |  | |
+  - | Product |  | 15 |  | |
+  - | Market |  | 20 |  | |
+  - | Traction |  | 20 |  | |
+  - | Financials |  | 10 |  | |
+  - | M&A/Exit |  | 5 |  | |
+  - Total Score: __
+
+- **Top 3 North Star Metrics:**
+- **Rationale:**
+"""
     payload = { "contents": [ { "parts": [ { "text": prompt } ] } ] }
     headers = { "Content-Type": "application/json" }
     response = requests.post(GEMINI_API_URL, json=payload, headers=headers)
@@ -46,7 +116,7 @@ def analyze():
     chunk_summaries = []
 
     for idx, chunk in enumerate(chunks):
-        parts = [{"text": f"You are an expert VC analyst... Chunk {idx+1} of {len(chunks)}"}]
+        parts = [{"text": f"You are an expert VC analyst. Analyze the startup pitch deck images below. Chunk {idx+1} of {len(chunks)}."}]
         for img_path in chunk:
             with open(img_path, "rb") as f:
                 encoded = base64.b64encode(f.read()).decode("utf-8")

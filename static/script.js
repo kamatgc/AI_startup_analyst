@@ -17,23 +17,4 @@ document.getElementById("analyzeBtn").onclick = async () => {
     const res = await fetch("/analyze", { method: "POST", body: formData });
     const data = await res.json();
     const memo = data.memo || "⚠️ No memo generated.";
-    document.getElementById("memo-output").innerHTML = marked.parse(memo);
-    document.getElementById("status").innerText = "Done.";
-    document.getElementById("downloadBtn").disabled = false;
-  } catch (error) {
-    document.getElementById("status").innerText = "Error generating memo.";
-    console.error("Memo generation failed:", error);
-  }
-};
-
-document.getElementById("downloadBtn").onclick = () => {
-  const element = document.getElementById("memo-output");
-  const opt = {
-    margin: 0.5,
-    filename: "investment_memo.pdf",
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
-  };
-  html2pdf().set(opt).from(element).save();
-};
 
