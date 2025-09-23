@@ -16,6 +16,12 @@ def synthesize_final_memo(chunk_summaries):
     prompt = f"""
 You are a professional VC analyst. Based on the summaries below, generate a single, clean investment memo using the exact structure and formatting provided. Do not add extra sections or repeat content. Use Markdown headings and spacing between sections.
 
+Inject actual values for North Star Metrics based on pitch deck data. Format the VC Scorecard table with Markdown borders. Show Confidence Score as a percentage (0–100%) and apply the following decision guide:
+
+- >= 70% → Strong Candidate (Go)
+- 51–69% → Conditional (monitor, more diligence)
+- < 50% → High Risk (No-Go)
+
 {full_text}
 
 The memo MUST follow this exact structure:
@@ -69,7 +75,7 @@ The memo MUST follow this exact structure:
 
 **9. Final Recommendation:**
 - **Verdict:**
-- **Confidence Score:**
+- **Confidence Score:** (as a percentage)
 - **VC Scorecard Calculation:**
   - | Category | Score (1–10) | Weightage (%) | Weighted Score | Notes |
   - |---------|--------------|----------------|----------------|-------|
@@ -82,6 +88,7 @@ The memo MUST follow this exact structure:
   - Total Score: __
 
 - **Top 3 North Star Metrics:**
+- Include actual values extracted from the pitch deck (e.g., ARR, ACV, CAC, LTV, Time-to-Insight).
 - **Rationale:**
 """
     payload = { "contents": [ { "parts": [ { "text": prompt } ] } ] }
