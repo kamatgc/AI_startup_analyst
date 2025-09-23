@@ -23,7 +23,11 @@ document.getElementById("analyzeBtn").onclick = async () => {
 
     // Render Markdown to HTML inside a dedicated container
     const container = document.getElementById("memo-output");
-    container.innerHTML = `<div id="pdf-container">${marked.parse(memo)}</div>`;
+    container.innerHTML = `
+      <div id="pdf-container" style="page-break-inside: avoid; padding: 20px;">
+        ${marked.parse(memo)}
+      </div>
+    `;
     document.getElementById("status").innerText = "Done.";
     document.getElementById("downloadBtn").disabled = false;
   } catch (error) {
@@ -45,13 +49,18 @@ document.getElementById("downloadBtn").onclick = () => {
   const opt = {
     margin: 0.5,
     filename: "investment_memo.pdf",
-    html2canvas: { scale: 2, useCORS: true },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      scrollY: -window.scrollY,
+      scrollX: -window.scrollX
+    },
     jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
   };
 
   // Delay to ensure DOM is fully painted
   setTimeout(() => {
     html2pdf().set(opt).from(pdfElement).save();
-  }, 800);
+  }, 1000);
 };
 
