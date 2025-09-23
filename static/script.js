@@ -43,6 +43,6 @@ document.getElementById("downloadBtn").onclick = () => {
   // Delay to ensure DOM is fully rendered before snapshot
   setTimeout(() => {
     html2pdf().set(opt).from(element).save();
-  }, 300);
+  }, 600);
 };
 

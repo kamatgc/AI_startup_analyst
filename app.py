@@ -16,7 +16,7 @@ def synthesize_final_memo(chunk_summaries):
     prompt = f"""
 You are a professional VC analyst. Based on the summaries below, generate a single, clean investment memo using the exact structure and formatting provided. Do not add extra sections or repeat content. Use Markdown headings and spacing between sections.
 
-Inject actual values for North Star Metrics based on pitch deck data. Format the VC Scorecard table using Markdown with borders. Show Confidence Score as a percentage (0–100%) and apply the following decision guide:
+Inject actual values for North Star Metrics based on pitch deck data. Format the VC Scorecard table using HTML with visible borders. Show Confidence Score as a percentage (0–100%) and apply the following decision guide:
 
 - >= 70% → Strong Candidate (Go)
 - 51–69% → Conditional (monitor, more diligence)
@@ -27,66 +27,38 @@ Ensure all section headings are bold and consistently formatted using Markdown #
 The memo MUST follow this exact structure:
 
 ## 1. Executive Summary:
-- Provide a single, concise paragraph that summarizes the company's core business, key highlights, and investment potential.
-
 ## 2. Company Overview:
-- **Startup Name:**
-- **Industry & Sector:**
-- **Domain:**
-- **Problem:**
-- **Solution:**
-
 ## 3. The Founding Team:
-- **Background and Expertise:**
-- **Team Cohesion:**
-- **Previous Exits/Successes:**
-- **Intellectual Property:**
-
 ## 4. Market Opportunity:
-- **Total Addressable Market (TAM):**
-- **Serviceable Addressable Market (SAM):**
-- **Competitive Landscape:**
-- **Market Growth Rate (CAGR):**
-
 ## 5. Product & Technology:
-- **Product Stage:**
-- **Technical Barrier to Entry:**
-
 ## 6. Traction & Commercials:
-- **Customer Metrics:**
-- **CAC:**
-- **LTV:**
-- **Revenue Model:**
-- **Revenue Run Rate:**
-- **Industry Recognition:**
-
 ## 7. Financials & Projections:
-- **Historical Revenue:**
-- **Revenue Projections:**
-- **Burn Rate:**
-- **Runway:**
-- **Use of Funds:**
-
 ## 8. Investment Terms & Exit Strategy:
-- **Round Details:**
-- **Pre-money Valuation:**
-- **Exit Scenarios:**
-- **Expected Returns:**
-
 ## 9. Final Recommendation:
 - **Verdict:**
 - **Confidence Score:**
 - **VC Scorecard Calculation:**
 
-| Category   | Score (1–10) | Weightage (%) | Weighted Score | Notes |
-|------------|--------------|----------------|----------------|-------|
-| Team       |              | 30             |                |       |
-| Product    |              | 15             |                |       |
-| Market     |              | 20             |                |       |
-| Traction   |              | 20             |                |       |
-| Financials |              | 10             |                |       |
-| M&A/Exit   |              | 5              |                |       |
-| **Total Score:** |        |                |                |       |
+<table class="table-auto border border-gray-400 border-collapse">
+<thead>
+<tr>
+<th class="border px-2 py-1">Category</th>
+<th class="border px-2 py-1">Score (1–10)</th>
+<th class="border px-2 py-1">Weightage (%)</th>
+<th class="border px-2 py-1">Weighted Score</th>
+<th class="border px-2 py-1">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr><td class="border px-2 py-1">Team</td><td class="border px-2 py-1"></td><td class="border px-2 py-1">30</td><td class="border px-2 py-1"></td><td class="border px-2 py-1"></td></tr>
+<tr><td class="border px-2 py-1">Product</td><td class="border px-2 py-1"></td><td class="border px-2 py-1">15</td><td class="border px-2 py-1"></td><td class="border px-2 py-1"></td></tr>
+<tr><td class="border px-2 py-1">Market</td><td class="border px-2 py-1"></td><td class="border px-2 py-1">20</td><td class="border px-2 py-1"></td><td class="border px-2 py-1"></td></tr>
+<tr><td class="border px-2 py-1">Traction</td><td class="border px-2 py-1"></td><td class="border px-2 py-1">20</td><td class="border px-2 py-1"></td><td class="border px-2 py-1"></td></tr>
+<tr><td class="border px-2 py-1">Financials</td><td class="border px-2 py-1"></td><td class="border px-2 py-1">10</td><td class="border px-2 py-1"></td><td class="border px-2 py-1"></td></tr>
+<tr><td class="border px-2 py-1">M&A/Exit</td><td class="border px-2 py-1"></td><td class="border px-2 py-1">5</td><td class="border px-2 py-1"></td><td class="border px-2 py-1"></td></tr>
+<tr><td class="border px-2 py-1 font-bold" colspan="3">Total Score:</td><td class="border px-2 py-1"></td><td class="border px-2 py-1"></td></tr>
+</tbody>
+</table>
 
 - **Top 3 North Star Metrics:**
 - **Rationale:**
