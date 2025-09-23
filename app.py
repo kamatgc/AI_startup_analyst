@@ -73,6 +73,8 @@ The memo MUST follow this exact structure:
         return result["candidates"][0]["content"]["parts"][0]["text"]
     except ValueError:
         return "⚠️ Gemini API returned invalid response. Please check prompt or try again."
+    except requests.exceptions.RequestException as e:
+        return f"⚠️ Gemini API request failed: {e}"
     except Exception as e:
         return f"⚠️ Error synthesizing final memo: {e}"
 
@@ -113,6 +115,8 @@ def analyze():
             chunk_text = result["candidates"][0]["content"]["parts"][0]["text"]
         except ValueError:
             chunk_text = f"⚠️ Gemini API returned invalid response for chunk {idx+1}."
+        except requests.exceptions.RequestException as e:
+            chunk_text = f"⚠️ Gemini API request failed for chunk {idx+1}: {e}"
         except Exception as e:
             chunk_text = f"⚠️ Error parsing chunk {idx+1}: {e}"
         chunk_summaries.append(chunk_text.strip())
