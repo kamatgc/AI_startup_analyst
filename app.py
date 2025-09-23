@@ -25,69 +25,15 @@ Inject actual values for North Star Metrics based on pitch deck data. Format the
 Ensure all section headings are bold and consistently formatted.
 
 {full_text}
-
-The memo MUST follow this exact structure:
-
-**1. Executive Summary:**
-- Provide a single, concise paragraph that summarizes the company's core business, key highlights, and investment potential.
-
-**2. Company Overview:**
-- **Startup Name:**
-- **Industry & Sector:**
-- **Domain:**
-- **Problem:**
-- **Solution:**
-
-**3. The Founding Team:**
-- **Background and Expertise:**
-- **Team Cohesion:**
-- **Previous Exits/Successes:**
-- **Intellectual Property:**
-
-**4. Market Opportunity:**
-- **Total Addressable Market (TAM):**
-- **Serviceable Addressable Market (SAM):**
-- **Competitive Landscape:**
-- **Market Growth Rate (CAGR):**
-
-**5. Product & Technology:**
-- **Product Stage:**
-- **Technical Barrier to Entry:**
-
-**6. Traction & Commercials:**
-- **Customer Metrics:**
-- **CAC:**
-- **LTV:**
-- **Revenue Model:**
-- **Revenue Run Rate:**
-- **Industry Recognition:**
-
-**7. Financials & Projections:**
-- **Historical Revenue:**
-- **Revenue Projections:**
-- **Burn Rate:**
-- **Runway:**
-- **Use of Funds:**
-
-**8. Investment Terms & Exit Strategy:**
-- **Round Details:**
-- **Pre-money Valuation:**
-- **Exit Scenarios:**
-- **Expected Returns:**
-
-**9. Final Recommendation:**
-- **Verdict:**
-- **Confidence Score:** (as a percentage)
-- **VC Scorecard Calculation:** (use HTML table with borders)
-- **Top 3 North Star Metrics:** (include actual values)
-- **Rationale:**
 """
     payload = { "contents": [ { "parts": [ { "text": prompt } ] } ] }
     headers = { "Content-Type": "application/json" }
-    response = requests.post(GEMINI_API_URL, json=payload, headers=headers)
-    result = response.json()
     try:
+        response = requests.post(GEMINI_API_URL, json=payload, headers=headers, timeout=60)
+        result = response.json()
         return result["candidates"][0]["content"]["parts"][0]["text"]
+    except requests.exceptions.Timeout:
+        return "⚠️ Gemini API timed out while synthesizing final memo. Try reducing deck size."
     except Exception as e:
         return f"⚠️ Error synthesizing final memo: {e}"
 
@@ -110,7 +56,8 @@ def analyze():
         pix.save(image_path)
         image_paths.append(image_path)
 
-    chunks = [image_paths[i:i+5] for i in range(0, len(image_paths), 5)]
+    chunk_size = 5  # Reduce to 3 if needed
+    chunks = [image_paths[i:i+chunk_size] for i in range(0, len(image_paths), chunk_size)]
     chunk_summaries = []
 
     for idx, chunk in enumerate(chunks):
@@ -121,10 +68,12 @@ def analyze():
                 parts.append({ "inline_data": { "mime_type": "image/png", "data": encoded } })
         payload = { "contents": [ { "parts": parts } ] }
         headers = { "Content-Type": "application/json" }
-        response = requests.post(GEMINI_API_URL, json=payload, headers=headers)
-        result = response.json()
         try:
+            response = requests.post(GEMINI_API_URL, json=payload, headers=headers, timeout=60)
+            result = response.json()
             chunk_text = result["candidates"][0]["content"]["parts"][0]["text"]
+        except requests.exceptions.Timeout:
+            chunk_text = f"⚠️ Gemini API timed out for chunk {idx+1}. Try reducing deck size."
         except Exception as e:
             chunk_text = f"⚠️ Error parsing chunk {idx+1}: {e}"
         chunk_summaries.append(chunk_text.strip())
