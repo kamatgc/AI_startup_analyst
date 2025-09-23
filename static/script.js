@@ -21,13 +21,21 @@ document.getElementById("analyzeBtn").onclick = async () => {
     // Add spacing before Markdown headings
     memo = memo.replace(/(\n#+ .+)/g, "\n\n$1");
 
-    // Render Markdown to HTML inside a dedicated container
+    // Create a dedicated container for full memo capture
     const container = document.getElementById("memo-output");
-    container.innerHTML = `
-      <div id="pdf-container" style="page-break-inside: avoid; padding: 20px;">
-        ${marked.parse(memo)}
-      </div>
-    `;
+    const pdfWrapper = document.createElement("div");
+    pdfWrapper.id = "pdf-container";
+    pdfWrapper.style.pageBreakInside = "avoid";
+    pdfWrapper.style.minHeight = "auto";
+    pdfWrapper.style.padding = "20px";
+    pdfWrapper.style.backgroundColor = "white";
+    pdfWrapper.style.color = "#1f2937";
+    pdfWrapper.style.whiteSpace = "pre-line";
+
+    pdfWrapper.innerHTML = marked.parse(memo);
+    container.innerHTML = "";
+    container.appendChild(pdfWrapper);
+
     document.getElementById("status").innerText = "Done.";
     document.getElementById("downloadBtn").disabled = false;
   } catch (error) {
