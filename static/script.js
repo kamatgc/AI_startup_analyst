@@ -12,7 +12,7 @@ function appendStatus(message) {
   statusBox.appendChild(entry);
 }
 
-document.getElementById("analyzeBtn").onclick = async () => {
+document.getElementById("analyzeBtn").onclick = () => {
   const file = document.getElementById("fileInput").files[0];
   if (!file) {
     appendStatus("Please select a PDF file.");
@@ -25,64 +25,46 @@ document.getElementById("analyzeBtn").onclick = async () => {
   }
 
   document.getElementById("status").innerHTML = "";
+  document.getElementById("memo-output").innerHTML = "";
   appendStatus("Uploading pitch deck...");
   document.getElementById("downloadMemoBtn").disabled = true;
 
   const formData = new FormData();
   formData.append("file", file);
 
-  const tryFetch = async (attempt = 1) => {
-    try {
-      const res = await fetch("/analyze", { method: "POST", body: formData });
-      const data = await res.json();
-      let memo = data.memo || "⚠️ No memo generated.";
-      const statusUpdates = data.status_updates || [];
-
-      const container = document.getElementById("memo-output");
-      container.innerHTML = "";
-
-      let i = 0;
-      const showNextStatus = () => {
-        if (i < statusUpdates.length) {
-          appendStatus(statusUpdates[i]);
-          i++;
-          setTimeout(showNextStatus, 800);
-        } else {
-          memo = memo.replace(/(\n#+ .+)/g, "\n\n$1");
-
-          const pdfWrapper = document.createElement("div");
-          pdfWrapper.id = "pdf-container";
-          pdfWrapper.style.pageBreakInside = "avoid";
-          pdfWrapper.style.minHeight = "auto";
-          pdfWrapper.style.padding = "20px";
-          pdfWrapper.style.backgroundColor = "white";
-          pdfWrapper.style.color = "#1f2937";
-          pdfWrapper.style.whiteSpace = "pre-line";
-          pdfWrapper.style.overflow = "visible";
-          pdfWrapper.style.display = "block";
-          pdfWrapper.style.width = "100%";
-
-          pdfWrapper.innerHTML = marked.parse(memo);
-          container.appendChild(pdfWrapper);
-
-          appendStatus("Memo generation complete.");
-          document.getElementById("downloadMemoBtn").disabled = false;
-        }
-      };
-
-      showNextStatus();
-    } catch (error) {
-      if (attempt === 1) {
-        appendStatus("Network error detected. Retrying...");
-        setTimeout(() => tryFetch(2), 2000);
+  fetch("/analyze", {
+    method: "POST",
+    body: formData
+  }).then(() => {
+    const eventSource = new EventSource("/analyze");
+    eventSource.onmessage = (event) => {
+      if (event.data.startsWith("memo:")) {
+        const memo = JSON.parse(event.data.slice(5));
+        const container = document.getElementById("memo-output");
+        const pdfWrapper = document.createElement("div");
+        pdfWrapper.id = "pdf-container";
+        pdfWrapper.style.pageBreakInside = "avoid";
+        pdfWrapper.style.minHeight = "auto";
+        pdfWrapper.style.padding = "20px";
+        pdfWrapper.style.backgroundColor = "white";
+        pdfWrapper.style.color = "#1f2937";
+        pdfWrapper.style.whiteSpace = "pre-line";
+        pdfWrapper.style.overflow = "visible";
+        pdfWrapper.style.display = "block";
+        pdfWrapper.style.width = "100%";
+        pdfWrapper.innerHTML = marked.parse(memo);
+        container.appendChild(pdfWrapper);
+        appendStatus("Memo generation complete.");
+        document.getElementById("downloadMemoBtn").disabled = false;
+        eventSource.close();
       } else {
-        appendStatus("❌ Failed to generate memo due to network or server error. Please check your connection and try again.");
-        console.error("Memo generation failed:", error);
+        appendStatus(event.data);
       }
-    }
-  };
-
-  tryFetch();
+    };
+  }).catch((error) => {
+    appendStatus("❌ Failed to start analysis. Please try again.");
+    console.error("Streaming error:", error);
+  });
 };
 
 document.getElementById("downloadMemoBtn").onclick = () => {
