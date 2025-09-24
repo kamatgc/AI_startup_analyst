@@ -13,6 +13,8 @@ app = Flask(__name__, template_folder="templates", static_folder="static")
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+processed_files = set()
+
 API_KEY = "AIzaSyAcPLSUgM9ZarS3D0CW0DmCzPLySBenQeU"
 GEMINI_MODEL = "gemini-2.5-flash-preview-05-20"
 GEMINI_API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={API_KEY}"
@@ -34,11 +36,15 @@ def upload():
 
 @app.route("/stream/<file_id>")
 def stream(file_id):
+    if file_id in processed_files:
+        return Response("data: [Already processed]\n\n", content_type='text/event-stream')
+
     file_path = os.path.join(UPLOAD_DIR, f"{file_id}.pdf")
     if not os.path.exists(file_path):
         return "File not found", 404
 
     def generate():
+        processed_files.add(file_id)
         start_time = datetime.now()
         temp_dir = tempfile.mkdtemp()
         doc = fitz.open(file_path)
@@ -81,7 +87,6 @@ def stream(file_id):
         yield f"data: {timestamped('Now synthesizing final memo...')}\n\n"
         full_text = "\n\n".join(chunk_summaries)
 
-        # Revert to approved v22 memo format
         prompt = f"""
 You are a professional VC analyst. Based on the summaries below, generate a clean investment memo using the following structure and formatting. Do not add extra sections or change the layout. Use Markdown headers and spacing exactly as shown.
 
@@ -129,7 +134,6 @@ You are a professional VC analyst. Based on the summaries below, generate a clea
         shutil.rmtree(temp_dir)
         os.remove(file_path)
 
-        # Actual duration
         end_time = datetime.now()
         duration = end_time - start_time
         total_sec = int(duration.total_seconds())
