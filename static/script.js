@@ -1,4 +1,5 @@
 document.getElementById("downloadBtn").disabled = true;
+document.getElementById("openTabBtn").disabled = true;
 
 document.getElementById("analyzeBtn").onclick = async () => {
   const file = document.getElementById("fileInput").files[0];
@@ -9,6 +10,7 @@ document.getElementById("analyzeBtn").onclick = async () => {
 
   document.getElementById("status").innerText = "Uploading and analyzing...";
   document.getElementById("downloadBtn").disabled = true;
+  document.getElementById("openTabBtn").disabled = true;
 
   const formData = new FormData();
   formData.append("file", file);
@@ -42,6 +44,7 @@ document.getElementById("analyzeBtn").onclick = async () => {
 
     document.getElementById("status").innerText = "Done.";
     document.getElementById("downloadBtn").disabled = false;
+    document.getElementById("openTabBtn").disabled = false;
   } catch (error) {
     document.getElementById("status").innerText = "Error generating memo.";
     console.error("Memo generation failed:", error);
@@ -55,7 +58,6 @@ document.getElementById("downloadBtn").onclick = () => {
     return;
   }
 
-  // Scroll into view to ensure visibility
   pdfElement.scrollIntoView({ behavior: "instant", block: "center" });
 
   const opt = {
@@ -70,9 +72,33 @@ document.getElementById("downloadBtn").onclick = () => {
     jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
   };
 
-  // Delay to ensure DOM is fully painted
   setTimeout(() => {
     html2pdf().set(opt).from(pdfElement).save();
   }, 1500);
+};
+
+document.getElementById("openTabBtn").onclick = () => {
+  const pdfElement = document.getElementById("pdf-container");
+  if (!pdfElement) {
+    alert("Memo not ready.");
+    return;
+  }
+
+  const newWindow = window.open("", "_blank");
+  newWindow.document.write(`
+    <html>
+      <head>
+        <title>Investment Memo</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; color: #1f2937; background: white; }
+          h2 { font-weight: bold; margin-top: 24px; }
+          table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+          th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        </style>
+      </head>
+      <body>${pdfElement.innerHTML}</body>
+    </html>
+  `);
+  newWindow.document.close();
 };
 

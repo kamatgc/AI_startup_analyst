@@ -4,29 +4,33 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Startup Analyst</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100">
-  <div class="max-w-3xl mx-auto mt-10 p-6 bg-white rounded shadow">
-    <h1 class="text-2xl font-bold mb-2">AI Startup Analyst</h1>
-    <p class="mb-4 text-gray-600">Upload a pitch deck PDF to generate a comprehensive investment memo.</p>
+<body class="bg-gray-100 text-gray-800">
+  <div class="max-w-4xl mx-auto p-6">
+    <h1 class="text-3xl font-bold mb-4">AI Startup Analyst</h1>
 
-    <input type="file" id="fileInput" accept=".pdf" class="mb-4" />
-    <button id="analyzeBtn" class="bg-blue-600 text-white px-4 py-2 rounded">Analyze Pitch Deck</button>
-
-    <div id="status" class="mt-4 text-sm text-gray-500"></div>
-
-    <div id="memo-output" class="markdown-content p-6 border rounded-lg bg-white text-gray-800 mt-6 whitespace-pre-line">
+    <div class="mb-4">
+      <input type="file" id="fileInput" class="border p-2 rounded" />
+      <button id="analyzeBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded ml-2">
+        Analyze Pitch Deck
+      </button>
+      <button id="downloadBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded ml-2">
+        Download PDF
+      </button>
+      <button id="openTabBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded ml-2">
+        Open Memo in New Tab
+      </button>
     </div>
 
-    <div class="mt-6 flex justify-between items-center">
-      <button id="downloadBtn" class="bg-green-600 text-white px-4 py-2 rounded" disabled>Download PDF</button>
-    </div>
+    <div id="status" class="mb-4 text-sm text-gray-600">Awaiting input...</div>
+
+    <div id="memo-output" class="bg-white p-6 rounded shadow whitespace-pre-line"></div>
   </div>
 
-  <script src="{{ url_for('static', filename='script.js') }}"></script>
+  <script src="/static/script.js"></script>
 </body>
 </html>
 
