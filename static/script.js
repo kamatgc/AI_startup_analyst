@@ -1,18 +1,31 @@
 document.getElementById("downloadMemoBtn").disabled = true;
 
+function getTimestamp() {
+  const now = new Date();
+  return now.toLocaleTimeString("en-GB", { hour12: false });
+}
+
+function appendStatus(message) {
+  const statusBox = document.getElementById("status");
+  const entry = document.createElement("div");
+  entry.textContent = `[${getTimestamp()}] ${message}`;
+  statusBox.appendChild(entry);
+}
+
 document.getElementById("analyzeBtn").onclick = async () => {
   const file = document.getElementById("fileInput").files[0];
   if (!file) {
-    document.getElementById("status").innerText = "Please select a PDF file.";
+    appendStatus("Please select a PDF file.");
     return;
   }
 
   if (!navigator.onLine) {
-    document.getElementById("status").innerText = "⚠️ You appear to be offline. Please check your connection.";
+    appendStatus("⚠️ You appear to be offline. Please check your connection.");
     return;
   }
 
-  document.getElementById("status").innerText = "Uploading pitch deck...";
+  document.getElementById("status").innerHTML = "";
+  appendStatus("Uploading pitch deck...");
   document.getElementById("downloadMemoBtn").disabled = true;
 
   const formData = new FormData();
@@ -25,20 +38,16 @@ document.getElementById("analyzeBtn").onclick = async () => {
       let memo = data.memo || "⚠️ No memo generated.";
       const statusUpdates = data.status_updates || [];
 
-      // Clear previous memo
       const container = document.getElementById("memo-output");
       container.innerHTML = "";
 
-      // Sequentially display status updates
-      const statusBox = document.getElementById("status");
       let i = 0;
       const showNextStatus = () => {
         if (i < statusUpdates.length) {
-          statusBox.innerText = statusUpdates[i];
+          appendStatus(statusUpdates[i]);
           i++;
           setTimeout(showNextStatus, 800);
         } else {
-          // Final rendering
           memo = memo.replace(/(\n#+ .+)/g, "\n\n$1");
 
           const pdfWrapper = document.createElement("div");
@@ -56,7 +65,7 @@ document.getElementById("analyzeBtn").onclick = async () => {
           pdfWrapper.innerHTML = marked.parse(memo);
           container.appendChild(pdfWrapper);
 
-          statusBox.innerText += "\nMemo generation complete.";
+          appendStatus("Memo generation complete.");
           document.getElementById("downloadMemoBtn").disabled = false;
         }
       };
@@ -64,11 +73,10 @@ document.getElementById("analyzeBtn").onclick = async () => {
       showNextStatus();
     } catch (error) {
       if (attempt === 1) {
-        document.getElementById("status").innerText = "Network error detected. Retrying...";
+        appendStatus("Network error detected. Retrying...");
         setTimeout(() => tryFetch(2), 2000);
       } else {
-        document.getElementById("status").innerText =
-          "❌ Failed to generate memo due to network or server error. Please check your connection and try again.";
+        appendStatus("❌ Failed to generate memo due to network or server error. Please check your connection and try again.");
         console.error("Memo generation failed:", error);
       }
     }
