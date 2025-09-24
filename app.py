@@ -39,9 +39,11 @@ def stream(file_id):
         return "File not found", 404
 
     def generate():
+        start_time = datetime.now()
         temp_dir = tempfile.mkdtemp()
         doc = fitz.open(file_path)
         yield f"data: {timestamped(f'PDF uploaded. Total pages: {len(doc)}')}\n\n"
+
         estimated_sec = max(30, len(doc) * 8)
         estimated_min = estimated_sec // 60
         yield f"data: {timestamped(f'Estimated processing time: {estimated_min} min {estimated_sec % 60} sec')}\n\n"
@@ -78,7 +80,40 @@ def stream(file_id):
 
         yield f"data: {timestamped('Now synthesizing final memo...')}\n\n"
         full_text = "\n\n".join(chunk_summaries)
-        prompt = f"""You are a professional VC analyst. Based on the summaries below, generate a single, clean investment memo using the exact structure and formatting provided... [truncated] ...{full_text}"""
+
+        # Revert to approved v22 memo format
+        prompt = f"""
+You are a professional VC analyst. Based on the summaries below, generate a clean investment memo using the following structure and formatting. Do not add extra sections or change the layout. Use Markdown headers and spacing exactly as shown.
+
+## 1. Executive Summary:
+## 2. Company Overview:
+## 3. The Founding Team:
+## 4. Market Opportunity:
+## 5. Product & Technology:
+## 6. Traction & Commercials:
+## 7. Financials & Projections:
+## 8. Investment Terms & Exit Strategy:
+## 9. Final Recommendation:
+- **Verdict:**
+- **Confidence Score:**
+- **VC Scorecard Calculation:**
+
+<table>
+<tr><th>Category</th><th>Score (1-10)</th><th>Weightage (%)</th><th>Weighted Score</th><th>Notes</th></tr>
+<tr><td>Team</td><td></td><td>30</td><td></td><td></td></tr>
+<tr><td>Product</td><td></td><td>15</td><td></td><td></td></tr>
+<tr><td>Market</td><td></td><td>20</td><td></td><td></td></tr>
+<tr><td>Traction</td><td></td><td>20</td><td></td><td></td></tr>
+<tr><td>Financials</td><td></td><td>10</td><td></td><td></td></tr>
+<tr><td>M&A/Exit</td><td></td><td>5</td><td></td><td></td></tr>
+<tr><td colspan="3">Total Score:</td><td></td><td></td></tr>
+</table>
+
+- **Top 3 North Star Metrics:**
+- **Rationale:**
+
+{full_text}
+"""
         payload = { "contents": [ { "parts": [ { "text": prompt } ] } ] }
         headers = { "Content-Type": "application/json" }
         try:
@@ -93,6 +128,13 @@ def stream(file_id):
 
         shutil.rmtree(temp_dir)
         os.remove(file_path)
+
+        # Actual duration
+        end_time = datetime.now()
+        duration = end_time - start_time
+        total_sec = int(duration.total_seconds())
+        total_min = total_sec // 60
+        yield f"data: {timestamped(f'Actual processing time: {total_min} min {total_sec % 60} sec')}\n\n"
 
     return Response(stream_with_context(generate()), content_type='text/event-stream')
 
