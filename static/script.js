@@ -18,6 +18,15 @@ document.getElementById("analyzeBtn").onclick = async () => {
     const data = await res.json();
     let memo = data.memo || "⚠️ No memo generated.";
 
+    // Extract page count and estimate time
+    const pageCountMatch = memo.match(/## 1\. Executive Summary:/g);
+    const estimatedTimeSec = Math.max(30, pageCountMatch ? pageCountMatch.length * 8 : 60);
+    const estimatedMin = Math.floor(estimatedTimeSec / 60);
+    const estimatedSec = estimatedTimeSec % 60;
+
+    document.getElementById("status").innerText =
+      `PDF uploaded.\nEstimated processing time: ${estimatedMin} min ${estimatedSec} sec.\nGenerating memo...`;
+
     memo = memo.replace(/(\n#+ .+)/g, "\n\n$1");
 
     const container = document.getElementById("memo-output");
@@ -38,7 +47,7 @@ document.getElementById("analyzeBtn").onclick = async () => {
     pdfWrapper.innerHTML = marked.parse(memo);
     container.appendChild(pdfWrapper);
 
-    document.getElementById("status").innerText = "Done.";
+    document.getElementById("status").innerText += "\nMemo generation complete.";
     document.getElementById("downloadMemoBtn").disabled = false;
   } catch (error) {
     document.getElementById("status").innerText = "Error generating memo.";
