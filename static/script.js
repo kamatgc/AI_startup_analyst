@@ -33,6 +33,9 @@ document.getElementById("analyzeBtn").onclick = async () => {
     pdfWrapper.style.backgroundColor = "white";
     pdfWrapper.style.color = "#1f2937";
     pdfWrapper.style.whiteSpace = "pre-line";
+    pdfWrapper.style.overflow = "visible";
+    pdfWrapper.style.display = "block";
+    pdfWrapper.style.width = "100%";
 
     pdfWrapper.innerHTML = marked.parse(memo);
     container.appendChild(pdfWrapper);
@@ -70,6 +73,6 @@ document.getElementById("downloadBtn").onclick = () => {
   // Delay to ensure DOM is fully painted
   setTimeout(() => {
     html2pdf().set(opt).from(pdfElement).save();
-  }, 1000);
+  }, 1500);
 };
 
