@@ -23,39 +23,45 @@ document.getElementById("analyzeBtn").onclick = async () => {
       const res = await fetch("/analyze", { method: "POST", body: formData });
       const data = await res.json();
       let memo = data.memo || "⚠️ No memo generated.";
+      const statusUpdates = data.status_updates || [];
 
-      // Estimate time based on section count (proxy for page count)
-      const sectionMatches = memo.match(/## \d+\. /g);
-      const sectionCount = sectionMatches ? sectionMatches.length : 9;
-      const estimatedTimeSec = Math.max(30, sectionCount * 8);
-      const estimatedMin = Math.floor(estimatedTimeSec / 60);
-      const estimatedSec = estimatedTimeSec % 60;
-
-      document.getElementById("status").innerText =
-        `PDF uploaded.\nEstimated processing time: ${estimatedMin} min ${estimatedSec} sec.\nGenerating memo...`;
-
-      memo = memo.replace(/(\n#+ .+)/g, "\n\n$1");
-
+      // Clear previous memo
       const container = document.getElementById("memo-output");
       container.innerHTML = "";
 
-      const pdfWrapper = document.createElement("div");
-      pdfWrapper.id = "pdf-container";
-      pdfWrapper.style.pageBreakInside = "avoid";
-      pdfWrapper.style.minHeight = "auto";
-      pdfWrapper.style.padding = "20px";
-      pdfWrapper.style.backgroundColor = "white";
-      pdfWrapper.style.color = "#1f2937";
-      pdfWrapper.style.whiteSpace = "pre-line";
-      pdfWrapper.style.overflow = "visible";
-      pdfWrapper.style.display = "block";
-      pdfWrapper.style.width = "100%";
+      // Sequentially display status updates
+      const statusBox = document.getElementById("status");
+      let i = 0;
+      const showNextStatus = () => {
+        if (i < statusUpdates.length) {
+          statusBox.innerText = statusUpdates[i];
+          i++;
+          setTimeout(showNextStatus, 800);
+        } else {
+          // Final rendering
+          memo = memo.replace(/(\n#+ .+)/g, "\n\n$1");
 
-      pdfWrapper.innerHTML = marked.parse(memo);
-      container.appendChild(pdfWrapper);
+          const pdfWrapper = document.createElement("div");
+          pdfWrapper.id = "pdf-container";
+          pdfWrapper.style.pageBreakInside = "avoid";
+          pdfWrapper.style.minHeight = "auto";
+          pdfWrapper.style.padding = "20px";
+          pdfWrapper.style.backgroundColor = "white";
+          pdfWrapper.style.color = "#1f2937";
+          pdfWrapper.style.whiteSpace = "pre-line";
+          pdfWrapper.style.overflow = "visible";
+          pdfWrapper.style.display = "block";
+          pdfWrapper.style.width = "100%";
 
-      document.getElementById("status").innerText += "\nMemo generation complete.";
-      document.getElementById("downloadMemoBtn").disabled = false;
+          pdfWrapper.innerHTML = marked.parse(memo);
+          container.appendChild(pdfWrapper);
+
+          statusBox.innerText += "\nMemo generation complete.";
+          document.getElementById("downloadMemoBtn").disabled = false;
+        }
+      };
+
+      showNextStatus();
     } catch (error) {
       if (attempt === 1) {
         document.getElementById("status").innerText = "Network error detected. Retrying...";
