@@ -1,5 +1,4 @@
-document.getElementById("downloadBtn").disabled = true;
-document.getElementById("openTabBtn").disabled = true;
+document.getElementById("downloadMemoBtn").disabled = true;
 
 document.getElementById("analyzeBtn").onclick = async () => {
   const file = document.getElementById("fileInput").files[0];
@@ -9,8 +8,7 @@ document.getElementById("analyzeBtn").onclick = async () => {
   }
 
   document.getElementById("status").innerText = "Uploading and analyzing...";
-  document.getElementById("downloadBtn").disabled = true;
-  document.getElementById("openTabBtn").disabled = true;
+  document.getElementById("downloadMemoBtn").disabled = true;
 
   const formData = new FormData();
   formData.append("file", file);
@@ -41,41 +39,14 @@ document.getElementById("analyzeBtn").onclick = async () => {
     container.appendChild(pdfWrapper);
 
     document.getElementById("status").innerText = "Done.";
-    document.getElementById("downloadBtn").disabled = false;
-    document.getElementById("openTabBtn").disabled = false;
+    document.getElementById("downloadMemoBtn").disabled = false;
   } catch (error) {
     document.getElementById("status").innerText = "Error generating memo.";
     console.error("Memo generation failed:", error);
   }
 };
 
-document.getElementById("downloadBtn").onclick = () => {
-  const pdfElement = document.getElementById("pdf-container");
-  if (!pdfElement) {
-    alert("PDF content not ready.");
-    return;
-  }
-
-  pdfElement.scrollIntoView({ behavior: "instant", block: "center" });
-
-  const opt = {
-    margin: 0.5,
-    filename: "investment_memo.pdf",
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      scrollY: -window.scrollY,
-      scrollX: -window.scrollX
-    },
-    jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
-  };
-
-  setTimeout(() => {
-    html2pdf().set(opt).from(pdfElement).save();
-  }, 1500);
-};
-
-document.getElementById("openTabBtn").onclick = () => {
+document.getElementById("downloadMemoBtn").onclick = () => {
   const pdfElement = document.getElementById("pdf-container");
   if (!pdfElement) {
     alert("Memo not ready.");
@@ -99,7 +70,6 @@ document.getElementById("openTabBtn").onclick = () => {
   `);
   newWindow.document.close();
 
-  // Auto-trigger browser print dialog
   newWindow.onload = () => {
     newWindow.print();
   };
