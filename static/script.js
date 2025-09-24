@@ -12,7 +12,7 @@ document.getElementById("analyzeBtn").onclick = async () => {
     return;
   }
 
-  document.getElementById("status").innerText = "Uploading and analyzing...";
+  document.getElementById("status").innerText = "Uploading pitch deck...";
   document.getElementById("downloadMemoBtn").disabled = true;
 
   const formData = new FormData();
@@ -24,9 +24,10 @@ document.getElementById("analyzeBtn").onclick = async () => {
       const data = await res.json();
       let memo = data.memo || "⚠️ No memo generated.";
 
-      // Estimate time based on page count (roughly 8 sec per page)
-      const pageCountMatch = memo.match(/## \d+\. /g);
-      const estimatedTimeSec = Math.max(30, pageCountMatch ? pageCountMatch.length * 8 : 60);
+      // Estimate time based on section count (proxy for page count)
+      const sectionMatches = memo.match(/## \d+\. /g);
+      const sectionCount = sectionMatches ? sectionMatches.length : 9;
+      const estimatedTimeSec = Math.max(30, sectionCount * 8);
       const estimatedMin = Math.floor(estimatedTimeSec / 60);
       const estimatedSec = estimatedTimeSec % 60;
 
