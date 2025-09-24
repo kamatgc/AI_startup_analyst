@@ -12,7 +12,7 @@ function appendStatus(message) {
   statusBox.appendChild(entry);
 }
 
-document.getElementById("analyzeBtn").onclick = () => {
+document.getElementById("analyzeBtn").onclick = async () => {
   const file = document.getElementById("fileInput").files[0];
   if (!file) {
     appendStatus("Please select a PDF file.");
@@ -32,15 +32,17 @@ document.getElementById("analyzeBtn").onclick = () => {
   const formData = new FormData();
   formData.append("file", file);
 
-  fetch("/analyze", {
-    method: "POST",
-    body: formData
-  }).then(() => {
-    const eventSource = new EventSource("/analyze");
+  try {
+    const res = await fetch("/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    const fileId = data.file_id;
+
+    const eventSource = new EventSource(`/stream/${fileId}`);
     eventSource.onmessage = (event) => {
       if (event.data.startsWith("memo:")) {
         const memo = JSON.parse(event.data.slice(5));
         const container = document.getElementById("memo-output");
+
         const pdfWrapper = document.createElement("div");
         pdfWrapper.id = "pdf-container";
         pdfWrapper.style.pageBreakInside = "avoid";
@@ -52,8 +54,10 @@ document.getElementById("analyzeBtn").onclick = () => {
         pdfWrapper.style.overflow = "visible";
         pdfWrapper.style.display = "block";
         pdfWrapper.style.width = "100%";
+
         pdfWrapper.innerHTML = marked.parse(memo);
         container.appendChild(pdfWrapper);
+
         appendStatus("Memo generation complete.");
         document.getElementById("downloadMemoBtn").disabled = false;
         eventSource.close();
@@ -61,10 +65,10 @@ document.getElementById("analyzeBtn").onclick = () => {
         appendStatus(event.data);
       }
     };
-  }).catch((error) => {
-    appendStatus("❌ Failed to start analysis. Please try again.");
-    console.error("Streaming error:", error);
-  });
+  } catch (error) {
+    appendStatus("❌ Upload failed. Please try again.");
+    console.error("Upload error:", error);
+  }
 };
 
 document.getElementById("downloadMemoBtn").onclick = () => {
@@ -80,10 +84,26 @@ document.getElementById("downloadMemoBtn").onclick = () => {
       <head>
         <title>Investment Memo</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 40px; color: #1f2937; background: white; }
-          h2 { font-weight: bold; margin-top: 24px; }
-          table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-          th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+          body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            color: #1f2937;
+            background: white;
+          }
+          h2 {
+            font-weight: bold;
+            margin-top: 24px;
+          }
+          table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+          }
+          th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+          }
         </style>
       </head>
       <body>${pdfElement.innerHTML}</body>
